@@ -75,6 +75,19 @@ runner
 
 引数なしの場合は、カレントディレクトリの `runfile.run` を探索して実行する。
 
+### 1.3.4 target 解決優先順位
+
+target は次の優先順位で解決する。
+
+1. target に拡張子がある場合は、そのファイルを直接実行する。
+2. target に拡張子がない場合は `<target>.run` を探索する。
+3. `<target>.run` が存在しない場合はエラーとする。
+
+例:
+
+runner build → build.run
+runner hello.py → hello.py
+
 ---
 
 ### 1.4 解決結果
@@ -197,6 +210,7 @@ runner 0.1.0
 #### 1.7.4 list
 
 カレントディレクトリの `.run` を表示する。
+探索はカレントディレクトリのみとし、再帰探索は行わない。
 
 ```bash
 runner --list
@@ -262,7 +276,18 @@ runner --check
 
 ---
 
-### 1.9 設計方針
+### 1.9 終了コード
+
+runner は実行したプロセスの終了コードをそのまま返す。
+
+- 0 : 正常終了
+- 非0 : runtime またはスクリプトのエラー
+
+runner 自体のエラーも非0を返す。
+
+---
+
+### 1.10 設計方針
 
 起動仕様は次を重視する。
 
@@ -630,6 +655,15 @@ print("Hello")
 runner_tmp.py
 ```
 
+#### 2.9.4 一時ファイル配置
+
+一時ファイルは OS の一時ディレクトリに生成する。
+runner は実行終了後に一時ファイルを削除する。
+
+例
+
+/tmp/runner_tmp.py
+
 ---
 
 ### 2.10 runtime 解決手順
@@ -860,6 +894,16 @@ runtime.python=python # invalid comment
 
 空行は無視される。
 
+#### 3.2.3 パース規則
+
+runner.env の読み込みは次の規則で行う。
+
+* key と value の前後の空白は無視する
+* key は大小文字を区別する
+* 同一 key が複数ある場合は **後勝ち** とする
+* 行頭 `#` はコメントとして扱う
+* 行内コメントはサポートしない
+  
 ---
 
 ### 3.3 runtime 定義
@@ -891,6 +935,8 @@ runtime.python=python -u
 runtime.node=node --enable-source-maps
 ```
 
+<command> は空白で分割され、実行引数として扱われる。
+
 runner は次の形式で実行する。
 
 ```text
@@ -902,6 +948,22 @@ runner は次の形式で実行する。
 ```text
 python -u program.py
 ```
+
+#### 3.3.2 実行方式
+
+runner は runtime コマンドを **shell を経由せず直接実行する**。
+
+実行形式:
+
+<runtime-command> <script-file>
+
+例:
+
+runtime.python=python -u
+
+実行:
+
+python -u program.py
 
 ---
 
