@@ -246,22 +246,11 @@ runner 0.1.0
 
 カレントディレクトリの `.run` を表示する。
 探索はカレントディレクトリのみとし、再帰探索は行わない。
---list は .run を拡張子なしで表示する。
+`--list` は `.run` を**拡張子なし**で表示する。
 
 ```bash
 runner --list
 ```
-
-例
-
-```text
-runfile.run
-build.run
-test.run
-deploy.run
-```
-
-`.run` は拡張子なし表示とする。
 
 例
 

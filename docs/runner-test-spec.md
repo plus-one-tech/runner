@@ -654,28 +654,50 @@ runner hello.py
 ### AT-082 エスケープ `\"`
 
 **前提**
-`runner.env` にダブルクォートを含む値がある。
+`runner.env` に以下がある。
+
+```text
+runtime.echo=echo "a\"b"
+ext.txt=echo
+```
+
+`hello.txt` が存在する。
 
 **操作**
-適切な `runner.env` を与えて実行する
+
+```text
+runner hello.txt
+```
 
 **期待結果**
 
-* `\"` をダブルクォートとして解釈する
+* `\"` を `"` として解釈する
+* 実行引数に `a"b` が渡される
 
 ---
 
 ### AT-083 エスケープ `\\`
 
 **前提**
-`runner.env` にバックスラッシュを含む値がある。
+`runner.env` に以下がある。
+
+```text
+runtime.echo=echo "C:\\Tools\\Python"
+ext.txt=echo
+```
+
+`hello.txt` が存在する。
 
 **操作**
-適切な `runner.env` を与えて実行する
+
+```text
+runner hello.txt
+```
 
 **期待結果**
 
-* `\\` をバックスラッシュとして解釈する
+* `\\` を `\` として解釈する
+* 実行引数に `C:\Tools\Python` が渡される
 
 ---
 
@@ -849,14 +871,18 @@ runner hello.py
 ### AT-112 UTF-8 BOM を無視
 
 **前提**
-UTF-8 BOM 付き `.run` または `runner.env` がある。
+先頭に UTF-8 BOM を含む `hello.run` がある（1行目は `#python`）。
 
 **操作**
-実行する
+
+```bash
+runner hello.run
+```
 
 **期待結果**
 
-* BOM を無視して正常に読み込める
+* BOM を無視してヘッダ解析できる
+* 正常に読み込める
 
 ---
 
@@ -866,25 +892,33 @@ UTF-8 BOM 付き `.run` または `runner.env` がある。
 LF 改行の `.run` / `runner.env` がある。
 
 **操作**
-実行する
+
+```bash
+runner hello.run
+```
 
 **期待結果**
 
 * 正常に読み込める
+* 正常終了する
 
 ---
 
 ### AT-114 CRLF を許可
 
 **前提**
-CRLF 改行の `.run` / `runner.env` がある。
+CRLF 改行で作成した `hello.run` と `runner.env` がある。
 
 **操作**
-実行する
+
+```bash
+runner hello.run
+```
 
 **期待結果**
 
 * 正常に読み込める
+* 正常終了する
 
 ---
 
