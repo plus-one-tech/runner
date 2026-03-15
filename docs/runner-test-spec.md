@@ -2,7 +2,7 @@
 
 ## 1. 基本起動
 
-### AT-001 ファイル指定実行
+### AT-010 ファイル指定実行
 
 **前提**
 `hello.py` が存在する。
@@ -21,7 +21,7 @@ runner hello.py
 
 ---
 
-### AT-002 `.run` ファイル明示指定
+### AT-011 `.run` ファイル明示指定
 
 **前提**
 `hello.run` が存在する。
@@ -40,7 +40,7 @@ runner hello.run
 
 ---
 
-### AT-003 名前指定実行
+### AT-012 名前指定実行
 
 **前提**
 `build.run` が存在する。
@@ -58,7 +58,7 @@ runner build
 
 ---
 
-### AT-004 引数なし実行
+### AT-013 引数なし実行
 
 **前提**
 `runfile.run` が存在する。
@@ -78,7 +78,7 @@ runner
 
 ## 2. target 解決優先順位
 
-### AT-005 拡張子あり target は直接実行
+### AT-020 拡張子あり target は直接実行
 
 **前提**
 `hello.py` が存在する。
@@ -96,7 +96,7 @@ runner hello.py
 
 ---
 
-### AT-006 拡張子なし target は `.run` を探索
+### AT-021 拡張子なし target は `.run` を探索
 
 **前提**
 `build.run` が存在する。
@@ -114,7 +114,7 @@ runner build
 
 ---
 
-### AT-007 拡張子なし target が見つからない場合
+### AT-022 拡張子なし target が見つからない場合
 
 **前提**
 `missing.run` が存在しない。
@@ -135,7 +135,7 @@ runner missing
 
 ## 3. dry-run
 
-### AT-008 dry-run は実行しない
+### AT-030 dry-run は実行しない
 
 **前提**
 `hello.py` が存在し、実行すると副作用が出る内容になっている。
@@ -155,7 +155,7 @@ runner -n hello.py
 
 ---
 
-### AT-009 dry-run で `.run` を解析する
+### AT-031 dry-run で `.run` を解析する
 
 **前提**
 `build.run` が存在する。
@@ -178,7 +178,7 @@ runner -n build
 
 ## 4. オプション
 
-### AT-010 `--help`
+### AT-040 `--help`
 
 **操作**
 
@@ -193,7 +193,7 @@ runner --help
 
 ---
 
-### AT-011 `--version`
+### AT-041 `--version`
 
 **操作**
 
@@ -208,7 +208,7 @@ runner --version
 
 ---
 
-### AT-012 `--list`
+### AT-042 `--list`
 
 **前提**
 カレントディレクトリに `runfile.run`, `build.run`, `test.run` が存在する。
@@ -224,11 +224,12 @@ runner --list
 * カレントディレクトリのみを探索する
 * 再帰探索は行わない
 * `.run` タスク一覧を表示する
+* `.run` を拡張子なしで表示する
 * 終了コードは 0
 
 ---
 
-### AT-013 `--list` は非再帰
+### AT-043 `--list` は非再帰
 
 **前提**
 `sub/deploy.run` が存在する。
@@ -245,7 +246,7 @@ runner --list
 
 ---
 
-### AT-014 無効オプション
+### AT-044 無効オプション
 
 **操作**
 
@@ -261,7 +262,7 @@ runner --check
 
 ---
 
-### AT-015 target 後ろのオプションは不許可
+### AT-045 target 後ろのオプションは不許可
 
 **操作**
 
@@ -278,7 +279,7 @@ runner hello.py -n
 
 ## 5. `.run` ヘッダ
 
-### AT-016 runtime 指定ヘッダ
+### AT-050 runtime 指定ヘッダ
 
 **前提**
 `hello.run` の先頭行が `#python` である。
@@ -295,7 +296,7 @@ runner hello.run
 
 ---
 
-### AT-017 仮想ファイル名指定ヘッダ
+### AT-051 仮想ファイル名指定ヘッダ
 
 **前提**
 `hello.run` の先頭行が `#program.py` である。
@@ -314,7 +315,7 @@ runner hello.run
 
 ---
 
-### AT-018 拡張子指定ヘッダ
+### AT-052 拡張子指定ヘッダ
 
 **前提**
 `hello.run` の先頭行が `#.py` である。
@@ -332,7 +333,7 @@ runner hello.run
 
 ---
 
-### AT-019 ヘッダなし
+### AT-053 ヘッダなし
 
 **前提**
 `bad.run` の1行目がヘッダでない。
@@ -351,7 +352,7 @@ runner bad.run
 
 ---
 
-### AT-020 不正ヘッダ
+### AT-054 不正ヘッダ
 
 **前提**
 `bad.run` の1行目が不正なヘッダである。
@@ -370,7 +371,7 @@ runner bad.run
 
 ---
 
-### AT-021 ヘッダ前空行は不許可
+### AT-055 ヘッダ前空行は不許可
 
 **前提**
 `bad.run` の先頭が空行で、その次に `#python` がある。
@@ -388,7 +389,7 @@ runner bad.run
 
 ---
 
-### AT-022 ヘッダ後空行は許可
+### AT-056 ヘッダ後空行は許可
 
 **前提**
 `ok.run` の内容が以下である。
@@ -413,7 +414,7 @@ runner ok.run
 
 ## 6. `.run` 一時ファイル
 
-### AT-023 `.run` は一時ファイルに展開する
+### AT-060 `.run` は一時ファイルに展開する
 
 **前提**
 `hello.run` が存在する。
@@ -431,7 +432,7 @@ runner hello.run
 
 ---
 
-### AT-024 一時ファイルは OS 一時ディレクトリに生成
+### AT-061 一時ファイルは OS 一時ディレクトリに生成
 
 **前提**
 `hello.run` が存在する。
@@ -448,7 +449,7 @@ runner hello.run
 
 ---
 
-### AT-025 一時ファイルは実行終了後に削除
+### AT-062 一時ファイルは実行終了後に削除
 
 **前提**
 `hello.run` が存在する。
@@ -465,7 +466,7 @@ runner hello.run
 
 ---
 
-### AT-026 dry-run では実行しない
+### AT-063 dry-run では実行しない
 
 **前提**
 `hello.run` が存在する。
@@ -478,14 +479,14 @@ runner -n hello.run
 
 **期待結果**
 
-* 一時ファイル名は決定する
+* 一時ファイル名は決定するが、生成しない
 * 実行はしない
 
 ---
 
 ## 7. runner.env 読み込み
 
-### AT-027 基本読み込み
+### AT-070 基本読み込み
 
 **前提**
 `runner.env` に `runtime.python=python` と `ext.py=python` がある。
@@ -504,7 +505,7 @@ runner hello.py
 
 ---
 
-### AT-028 前後空白を無視
+### AT-071 前後空白を無視
 
 **前提**
 `runner.env` に以下がある。
@@ -526,7 +527,7 @@ runner hello.py
 
 ---
 
-### AT-029 コメント行を無視
+### AT-072 コメント行を無視
 
 **前提**
 `runner.env` にコメント行がある。
@@ -543,7 +544,7 @@ runner hello.py
 
 ---
 
-### AT-030 行内コメントはサポートしない
+### AT-073 行内コメントはサポートしない
 
 **前提**
 `runner.env` に以下がある。
@@ -560,12 +561,12 @@ runner hello.py
 
 **期待結果**
 
-* 行内コメントとしては扱わない
-* 実装仕様に従って不正入力として扱うか、そのまま値に含めるかをテストで固定する必要がある
-
+* `#` 以降をコメントとしては扱わない
+* 値の一部として読み込む
+  
 ---
 
-### AT-031 重複キーは後勝ち
+### AT-074 重複キーは後勝ち
 
 **前提**
 `runner.env` に以下がある。
@@ -587,7 +588,7 @@ runner hello.py
 
 ---
 
-### AT-032 key は大小文字を区別
+### AT-075 key は大小文字を区別
 
 **前提**
 `runner.env` に `ext.PY=python` のみがある。
@@ -607,7 +608,7 @@ runner hello.py
 
 ## 8. command 分割
 
-### AT-033 command を空白で分割
+### AT-080 command を空白で分割
 
 **前提**
 `runner.env` に以下がある。
@@ -628,7 +629,7 @@ runner hello.py
 
 ---
 
-### AT-034 ダブルクォートで1引数化
+### AT-081 ダブルクォートで1引数化
 
 **前提**
 `runner.env` に以下がある。
@@ -650,7 +651,7 @@ runner hello.py
 
 ---
 
-### AT-035 エスケープ `\"`
+### AT-082 エスケープ `\"`
 
 **前提**
 `runner.env` にダブルクォートを含む値がある。
@@ -664,7 +665,7 @@ runner hello.py
 
 ---
 
-### AT-036 エスケープ `\\`
+### AT-083 エスケープ `\\`
 
 **前提**
 `runner.env` にバックスラッシュを含む値がある。
@@ -678,7 +679,7 @@ runner hello.py
 
 ---
 
-### AT-037 不正クォート
+### AT-084 不正クォート
 
 **前提**
 `runner.env` に閉じ忘れたクォートがある。
@@ -696,7 +697,7 @@ runner hello.py
 
 ---
 
-### AT-038 shell 展開なし
+### AT-085 shell 展開なし
 
 **前提**
 `runner.env` に以下がある。
@@ -720,7 +721,7 @@ runner hello.py
 
 ## 9. 未定義 runtime / extension
 
-### AT-039 extension 未定義
+### AT-090 extension 未定義
 
 **前提**
 `runner.env` に `ext.py` が存在しない。
@@ -738,7 +739,7 @@ runner hello.py
 
 ---
 
-### AT-040 runtime 未定義
+### AT-091 runtime 未定義
 
 **前提**
 `runner.env` に `ext.py=python` はあるが `runtime.python` が存在しない。
@@ -758,7 +759,7 @@ runner hello.py
 
 ## 10. 終了コード
 
-### AT-041 正常終了
+### AT-100 正常終了
 
 **前提**
 正常終了するスクリプトがある。
@@ -775,7 +776,7 @@ runner hello.py
 
 ---
 
-### AT-042 実行プロセスの非0終了を伝播
+### AT-101 実行プロセスの非0終了を伝播
 
 **前提**
 対象スクリプトが `exit 5` 相当で終了する。
@@ -792,7 +793,7 @@ runner fail.py
 
 ---
 
-### AT-043 runner 自体のエラー
+### AT-102 runner 自体のエラー
 
 **前提**
 存在しない target を指定する。
@@ -811,7 +812,7 @@ runner missing
 
 ## 11. 文字コード・改行コード
 
-### AT-044 `.run` UTF-8
+### AT-110 `.run` UTF-8
 
 **前提**
 UTF-8 で書かれた `.run` がある。
@@ -828,7 +829,7 @@ runner hello.run
 
 ---
 
-### AT-045 `runner.env` UTF-8
+### AT-111 `runner.env` UTF-8
 
 **前提**
 UTF-8 で書かれた `runner.env` がある。
@@ -845,7 +846,7 @@ runner hello.py
 
 ---
 
-### AT-046 UTF-8 BOM を無視
+### AT-112 UTF-8 BOM を無視
 
 **前提**
 UTF-8 BOM 付き `.run` または `runner.env` がある。
@@ -859,7 +860,7 @@ UTF-8 BOM 付き `.run` または `runner.env` がある。
 
 ---
 
-### AT-047 LF を許可
+### AT-113 LF を許可
 
 **前提**
 LF 改行の `.run` / `runner.env` がある。
@@ -873,7 +874,7 @@ LF 改行の `.run` / `runner.env` がある。
 
 ---
 
-### AT-048 CRLF を許可
+### AT-114 CRLF を許可
 
 **前提**
 CRLF 改行の `.run` / `runner.env` がある。
@@ -889,7 +890,7 @@ CRLF 改行の `.run` / `runner.env` がある。
 
 ## 12. `.run` 実行権限
 
-### AT-049 `.run` に実行権限は不要
+### AT-120 `.run` に実行権限は不要
 
 **前提**
 `build.run` に実行権限が付いていない。
@@ -906,7 +907,9 @@ runner build
 
 ---
 
-### AT-050 `.run` の直接実行は想定しない
+## 13. 非対象
+
+### N-130 `.run` の直接実行は受け入れ対象外
 
 **前提**
 `build.run` が存在する。
