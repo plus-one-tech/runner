@@ -2,6 +2,8 @@ package runner
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -244,7 +246,7 @@ func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, erro
 		body = strings.Join(lines[1:], "\n")
 	}
 
-	var runtimeName, tempName string
+	var runtimeName, tempExt string
 	h := strings.TrimPrefix(header, "#")
 	switch {
 	case strings.HasPrefix(h, "."):
@@ -257,7 +259,7 @@ func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, erro
 			return runPlan{}, fmt.Errorf("[runner] extension not mapped: .%s", ext)
 		}
 		runtimeName = rn
-		tempName = "runner_tmp." + ext
+		tempExt = "." + ext
 	case strings.Contains(h, "."):
 		parts := strings.Split(h, ".")
 		ext := parts[len(parts)-1]
@@ -269,10 +271,10 @@ func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, erro
 			return runPlan{}, fmt.Errorf("[runner] extension not mapped: .%s", ext)
 		}
 		runtimeName = rn
-		tempName = h
+		tempExt = "." + ext
 	default:
 		runtimeName = h
-		tempName = "runner_tmp"
+		tempExt = ""
 	}
 
 	cmdStr, ok := cfg.runtime[runtimeName]
@@ -283,7 +285,15 @@ func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, erro
 	if err != nil {
 		return runPlan{}, err
 	}
-	tempPath := filepath.Join(os.TempDir(), tempName)
+	tempFile, err := os.CreateTemp("", "runner-*"+tempExt)
+	if err != nil {
+		return runPlan{}, err
+	}
+	tempPath, err := makeTempPath(tempExt)
+	if err != nil {
+		return runPlan{}, err
+	}
+
 	args = append(args, tempPath)
 	if dryRun {
 		return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
@@ -368,4 +378,21 @@ func splitCommand(s string) ([]string, error) {
 		return nil, fmt.Errorf("[runner] runtime not defined: empty")
 	}
 	return out, nil
+}
+
+func makeTempPath(ext string) (string, error) {
+	suffix, err := randomHex(8)
+	if err != nil {
+		return "", err
+	}
+	name := "runner-" + suffix + ext
+	return filepath.Join(os.TempDir(), name), nil
+}
+
+func randomHex(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
