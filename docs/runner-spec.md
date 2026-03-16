@@ -3,7 +3,7 @@ date    : 2026-03-15         # 文書の初回作成日
 author  : 高野順一            # 文書の主要な作成者
 title   : runner 仕様
 owner   : 責任者              # 文書の現在の責任者 / 最終更新者
-updated : YYYY-MM-DD         # 文書の最終更新日
+updated : 2026-03-16         # 文書の最終更新日
 tags    : SE向け, PM向け, 開発者向け, 新人向け
        - 技術解説, 概念, 実践, ノウハウ, 考察, トラブルシューティング
 policy  :
@@ -14,7 +14,7 @@ policy  :
 note    : 
 ---
 
-**最終更新日: 2026年03月15日**
+**最終更新日: 2026年03月16日**
 
 # runner 仕様
 
@@ -177,8 +177,32 @@ dry-run では次を行う。
 * runtime 解決
 * 実行コマンド生成
 * 一時ファイル名決定
+* 必要な範囲の変数展開
 
 実際のプロセス実行は行わない。
+
+#### 1.6.3 `#script` の dry-run
+
+`.run` の先頭ヘッダが `#script` の場合、dry-run は **全 OS ブロック** を対象とする。
+
+表示順は次のとおり。
+
+1. `@windows`
+2. `@linux`
+3. `@macos`
+
+各 OS ブロックについて、runner は次を行う。
+
+* OS ブロック抽出
+* ブロック内 runtime ヘッダ解析
+* `runner.env` の変数展開
+* 展開後のスクリプト内容表示
+
+`#script` の dry-run でも、一時ファイルは生成しない。
+
+#### 1.6.4 `#runtime` の dry-run
+
+`#script` 以外の通常 `.run` は、従来どおり **対象 1 本だけ** を dry-run の対象とする。
 
 ---
 
@@ -359,7 +383,9 @@ deploy.run
 
 ### 2.2 基本構造
 
-`.run` ファイルは次の構造を持つ。
+`.run` ファイルは次のいずれかの構造を持つ。
+
+#### 2.2.1 通常モード
 
 ```text
 #<header>
@@ -385,16 +411,37 @@ print("Hello Runner")
 print("Hello Runner")
 ```
 
+#### 2.2.2 `#script` モード
+
+```text
+#script
+
+@windows
+#pwsh
+...
+
+@linux
+#bash
+...
+
+@macos
+#bash
+...
+```
+
+`#script` モードでは、本文は **OS ブロックの集合**として扱う。
+
 ---
 
 ### 2.3 ヘッダ仕様
 
-ヘッダは次の 3 形式をサポートする。
+ヘッダは次の 4 形式をサポートする。
 
 ```text
 #<runtime>
 #<filename.extension>
 #.<extension>
+#script
 ```
 
 ---
@@ -517,6 +564,18 @@ python
 runtime.python
 ```
 
+
+#### 2.4.4 `#script`
+
+```text
+#script
+```
+
+`#script` は **OS ごとに異なるスクリプトを 1 ファイルにまとめるモード**として解釈する。
+
+このヘッダ自体は runtime を表さない。
+runtime は各 OS ブロック内の先頭ヘッダで決定する。
+
 ---
 
 ### 2.5 ヘッダの意味
@@ -563,11 +622,27 @@ runtime.python
 * runtime は `runner.env` に任せたい
 * 仮想ファイル名までは不要
 
+#### 2.5.4 `#script`
+
+```text
+#script
+```
+
+OS ごとに異なる処理を 1 つの `.run` にまとめたい場合に使う。
+
+用途
+
+* install 処理
+* 初期セットアップ
+* OS ごとのコピー先やコマンドが異なる処理
+
 ---
 
 ### 2.6 本文
 
-2 行目以降は **そのままプログラム本文**とする。
+#### 2.6.1 通常モード
+
+`#script` 以外の `.run` では、2 行目以降を **そのままプログラム本文**とする。
 
 例
 
@@ -583,7 +658,75 @@ echo "Hello Runner"
 
 本文の文法やコメントは **各 runtime / 言語の仕様に従う**。
 
-`.run` 自体は本文に対して独自構文を持たない。
+#### 2.6.2 `#script` モードの本文
+
+`#script` の場合、2 行目以降は **OS ブロックの集合**とする。
+
+OS ブロックは次の 3 種類のみをサポートする。
+
+```text
+@windows
+@linux
+@macos
+```
+
+#### 2.6.3 OS ブロックの構造
+
+各 OS ブロックは次の構造を持つ。
+
+```text
+@windows
+#pwsh
+<block body>
+```
+
+```text
+@linux
+#bash
+<block body>
+```
+
+```text
+@macos
+#bash
+<block body>
+```
+
+`@<os>` の次の **最初の非空行** は、必ず runtime 指定ヘッダでなければならない。
+
+許可する形式は次のみとする。
+
+```text
+#<runtime>
+```
+
+`#program.py` や `#.py` は、OS ブロック内ヘッダとしてはサポートしない。
+
+#### 2.6.4 OS ブロックの範囲
+
+1 つの OS ブロックは、次のいずれかで終わる。
+
+* 次の `@windows` / `@linux` / `@macos`
+* ファイル終端
+
+`@end` はサポートしない。
+
+#### 2.6.5 `#script` モードで許可する内容
+
+`#script` モードでは、OS ブロックの外側に置けるのは次のみとする。
+
+* 空行
+* 行頭 `#` のコメント
+
+それ以外の本文行は不正とする。
+
+#### 2.6.6 本文の解釈
+
+OS ブロック内の runtime ヘッダより後ろは、その runtime に渡す **生のスクリプト本文**とする。
+
+本文の文法、コメント、if 文、変数、制御構文は **各 runtime / 言語の仕様に従う**。
+
+runner は本文の意味を解釈しない。
 
 ---
 
@@ -619,6 +762,9 @@ runner
 
 `.run` の本文は、**一時ファイルに展開して実行する**。
 
+`#script` の場合は、現在 OS に対応する OS ブロックだけを選択し、
+そのブロックの runtime ヘッダを除いた本文を一時ファイルに展開して実行する。
+
 stdin 実行や `-c` / `eval` 方式は採用しない。
 
 理由
@@ -631,7 +777,7 @@ stdin 実行や `-c` / `eval` 方式は採用しない。
 
 ### 2.9 一時ファイル生成
 
-runner は `.run` の本文を一時ファイルに書き出し、そのファイルを runtime に渡して実行する。
+runner は `.run` の実行対象本文を一時ファイルに書き出し、そのファイルを runtime に渡して実行する。
 
 #### 2.9.1 runtime 指定の場合
 
@@ -680,14 +826,32 @@ print("Hello")
 runner_tmp.py
 ```
 
-#### 2.9.4 一時ファイル配置
+#### 2.9.4 `#script` の場合
+
+`#script` では、選択された OS ブロックだけを対象として一時ファイルを生成する。
+
+一時ファイルの内容には次を含めない。
+
+* `#script`
+* `@windows` / `@linux` / `@macos`
+* OS ブロック内 runtime ヘッダ
+
+一時ファイル名は runner が自動生成する。
+
+#### 2.9.5 一時ファイル配置
 
 一時ファイルは OS の一時ディレクトリに生成する。
 runner は実行終了後に一時ファイルを削除する。
 
 例
 
+```text
 /tmp/runner_tmp.py
+```
+
+#### 2.9.6 dry-run
+
+dry-run では一時ファイル名は決定するが、ファイル自体は生成しない。
 
 ---
 
@@ -779,6 +943,45 @@ runtime.python
 python
 ```
 
+#### `#script`
+
+```text
+#script
+@linux
+#bash
+echo "Hello"
+```
+
+↓
+
+```text
+current os = linux
+```
+
+↓
+
+```text
+select @linux block
+```
+
+↓
+
+```text
+runtime = bash
+```
+
+↓
+
+```text
+runtime.bash
+```
+
+↓
+
+```text
+bash
+```
+
 ---
 
 ### 2.11 実行コマンド生成
@@ -843,6 +1046,46 @@ missing header
 [runner] runtime not defined: python
 ```
 
+#### 2.12.5 `#script` で OS ブロックが存在しない
+
+現在 OS に対応する OS ブロックが存在しない場合はエラーとする。
+
+例
+
+```text
+[runner] os block not found: linux
+```
+
+#### 2.12.6 OS ブロックの runtime ヘッダが存在しない
+
+`@windows` / `@linux` / `@macos` の直後に runtime ヘッダがない場合はエラーとする。
+
+例
+
+```text
+[runner] runtime header required in os block: linux
+```
+
+#### 2.12.7 `#script` の構造が不正
+
+OS ブロック外に本文行がある、未対応の OS マーカーがある、または OS ブロック内ヘッダが不正な場合はエラーとする。
+
+例
+
+```text
+[runner] invalid script block
+```
+
+#### 2.12.8 未定義変数
+
+`runner.env` に存在しない変数を `${...}` で参照した場合はエラーとする。
+
+例
+
+```text
+[runner] variable not defined: var.install_dir.linux
+```
+
 ---
 
 ### 2.13 コメントと空行
@@ -864,6 +1107,31 @@ missing header
 print("Hello")
 ```
 
+#### `#script` モードの空行
+
+`#script` モードでは、OS ブロックの外側・内側ともに空行を許可する。
+
+#### `#script` モードのコメント
+
+`#script` モードでは、OS ブロックの外側にある行頭 `#` の行をコメントとして許可する。
+ただし `#script` と OS ブロック内 runtime ヘッダはコメントではない。
+
+OS ブロック内のコメントは、選択された runtime の文法に従う。
+
+### 2.14 処理順
+
+`.run` 実行時の処理順は次のとおり。
+
+1. `.run` を読み込む
+2. 1 行目のヘッダを解析する
+3. `#script` の場合は OS ブロックを抽出する
+4. runtime を決定する
+5. 対象本文に対して変数展開を行う
+6. 一時ファイル名を決定する
+7. dry-run なら表示のみ行う
+8. 通常実行なら一時ファイルを生成し、runtime に直接渡して実行する
+9. 実行終了後、一時ファイルを削除する
+
 ---
 
 ## 3. `runner.env` 仕様
@@ -876,6 +1144,7 @@ print("Hello")
 
 * runtime の定義
 * 拡張子と runtime の対応付け
+* `.run` 本文で使う変数の定義
 * 一部実行設定の定義
 
 ---
@@ -896,6 +1165,10 @@ ext.cs=dotnet
 ext.js=node
 ext.sh=bash
 ext.ps1=pwsh
+
+var.install_dir.windows=C:\tools\runner
+var.install_dir.linux=/home/user/.local/bin
+var.install_dir.macos=/Users/user/.local/bin
 ```
 
 #### 3.2.1 コメント
@@ -1079,13 +1352,80 @@ runtime が定義されていない場合、runner はエラーとする。
 
 ---
 
-### 3.9 まとめ
+### 3.9 変数定義
 
-`runner.env` は次の2種類の定義を持つ。
+`.run` 本文で使用する変数は次の形式で定義する。
+
+```text
+var.<name>=<value>
+```
+
+例
+
+```text
+var.install_dir.windows=C:\tools\runner
+var.install_dir.linux=/home/user/.local/bin
+var.install_dir.macos=/Users/user/.local/bin
+```
+
+`var.` を付けない任意キーはサポートしない。
+
+### 3.10 変数展開
+
+`.run` 本文では、`runner.env` の変数を次の形式で参照できる。
+
+```text
+${var.<name>}
+```
+
+例
+
+```text
+cp runner ${var.install_dir.linux}/runner
+```
+
+#### 3.10.1 展開対象
+
+runner が展開するのは **`runner.env` に定義された `var.*` のみ** とする。
+
+OS 環境変数は展開しない。
+
+例
+
+* `$HOME`
+* `%LOCALAPPDATA%`
+* `$env:LOCALAPPDATA`
+
+これらは runner では解釈せず、そのまま本文文字列として扱う。
+
+#### 3.10.2 展開タイミング
+
+変数展開は、runtime 決定後、実行対象本文に対して行う。
+
+`#script` の場合は、各 OS ブロックを個別に処理する。
+
+* 通常実行では、選択された OS ブロックだけを展開する
+* dry-run では、各 OS ブロックを順に同じ規則で展開して表示する
+
+#### 3.10.3 展開規則
+
+次の規則を適用する。
+
+* `${var.<name>}` のみサポートする
+* 単純置換のみ行う
+* デフォルト値はサポートしない
+* ネストはサポートしない
+* 式評価はサポートしない
+* 未定義変数はエラーとする
+
+### 3.11 まとめ
+
+`runner.env` は次の3種類の定義を持つ。
 
 ```text
 runtime.<name>=<command>
 ext.<extension>=<runtime>
+var.<name>=<value>
 ```
 
 これにより runner は
@@ -1094,6 +1434,8 @@ ext.<extension>=<runtime>
 .run header
 ↓
 extension/runtime 解決
+↓
+必要なら変数展開
 ↓
 runtime command 実行
 ```
@@ -1120,13 +1462,39 @@ UTF-8 BOM が存在する場合は読み込み時に無視する。
 
 実行権限（chmod +x）は不要であり、直接実行することは想定しない。
 
-### 4.4 一時ファイル
+### 4.4 OS依存のディレクトリ仕様
+
+runner は OS ごとに次の標準ディレクトリを使用する。
+
+#### 実行ファイル
+
+これらのディレクトリはユーザーの PATH に含まれることを想定する。
+
+* Windows: `%LOCALAPPDATA%\\runner\\runner.exe`
+* Linux: `~/.local/bin/runner`
+* macOS: `~/.local/bin/runner`
+
+#### ユーザー設定
+
+* Windows: `%APPDATA%\\runner\\runner.env`
+* Linux: `~/.config/runner/runner.env`
+* macOS: `~/Library/Application Support/runner/runner.env`
+
+#### 一時ファイル
 
 runner は .run の実行時に一時ファイルを生成する。
+一時ファイルは OS の一時ディレクトリに生成する。
 
-一時ファイルは OS の一時ディレクトリに生成する。  
+* Windows: `%TEMP%`
+* Linux: `/tmp`
+* macOS: `/tmp`
+
 実行終了後に削除する。
 
+#### プロジェクト設定
+
+* 全OS共通: `./runner.env`
+  
 ---
 
 ## 5. 将来拡張
@@ -1170,12 +1538,15 @@ default
 
 .run の本文は一時ファイルとして展開して実行する。
 
+`#script` の場合は、選択された OS ブロックの本文だけを一時ファイルへ展開する。
+
 実装時は以下に注意する。
 
 - OS の一時ディレクトリを利用する
 - 同時実行時に衝突しない一意なファイル名を使用する
 - 実行終了後に削除する
 - 異常終了時も可能な限り削除する
+- dry-run では生成しない
 
 ### A.2 プロセス実行
 

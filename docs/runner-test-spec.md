@@ -174,6 +174,26 @@ runner -n build
 * 一時ファイル名を決定する
 * 実行はしない
 
+### AT-032 `#script` の dry-run は全 OS を表示
+
+**前提**
+`install.run` の先頭が `#script` であり、`@windows` / `@linux` / `@macos` の各ブロックが存在する。
+
+**操作**
+
+```bash
+runner -n install.run
+```
+
+**期待結果**
+
+* `@windows` / `@linux` / `@macos` を順に処理する
+* 各 OS ブロックの runtime ヘッダを解析する
+* 各 OS ブロックに対して変数展開を行う
+* 展開後の本文を表示する
+* 一時ファイルは生成しない
+* 実行はしない
+
 ---
 
 ## 4. オプション
@@ -410,6 +430,56 @@ runner ok.run
 
 * 正常に実行できる
 
+### AT-057 `#script` ヘッダ
+
+**前提**
+`install.run` の先頭行が `#script` である。
+
+**操作**
+
+```bash
+runner -n install.run
+```
+
+**期待結果**
+
+* `#script` として解釈する
+* 通常 `.run` とは異なり、OS ブロックモードで解析する
+
+### AT-058 OS ブロック内 runtime ヘッダ必須
+
+**前提**
+`install.run` が `#script` で始まり、`@linux` の直後に runtime ヘッダがない。
+
+**操作**
+
+```bash
+runner install.run
+```
+
+**期待結果**
+
+* エラー終了する
+* `runtime header required in os block: linux` を表示する
+* 非0を返す
+
+### AT-059 `#script` の不正構造
+
+**前提**
+`install.run` が `#script` で始まり、OS ブロック外に本文行がある。
+
+**操作**
+
+```bash
+runner install.run
+```
+
+**期待結果**
+
+* エラー終了する
+* `invalid script block` を表示する
+* 非0を返す
+
 ---
 
 ## 6. `.run` 一時ファイル
@@ -481,6 +551,23 @@ runner -n hello.run
 
 * 一時ファイル名は決定するが、生成しない
 * 実行はしない
+
+### AT-064 `#script` は選択 OS ブロックだけを一時ファイル化する
+
+**前提**
+`install.run` が `#script` で始まり、各 OS ブロックを持つ。
+
+**操作**
+
+```bash
+runner install.run
+```
+
+**期待結果**
+
+* 現在 OS に対応するブロックだけを選択する
+* 選択したブロックの本文だけを一時ファイルへ展開する
+* `#script` や `@windows` などの構造行は一時ファイルに含めない
 
 ---
 
@@ -941,7 +1028,7 @@ runner build
 
 ---
 
-## 13. 非対象
+## 14. 非対象
 
 ### N-001 `.run` の直接実行は受け入れ対象外
 

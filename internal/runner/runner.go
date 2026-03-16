@@ -2,6 +2,8 @@ package runner
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -103,30 +105,31 @@ func parseArgs(args []string) (options, error) {
 			}
 			continue
 		}
-
 		if opts.target != "" {
 			return options{}, fmt.Errorf("[runner] unexpected argument: %s", arg)
 		}
 		opts.target = arg
-		for _, rest := range args[i+1:] {
-			if strings.HasPrefix(rest, "-") {
-				return options{}, fmt.Errorf("[runner] unknown option: %s", rest)
+		if i != len(args)-1 {
+			for _, rest := range args[i+1:] {
+				if strings.HasPrefix(rest, "-") {
+					return options{}, fmt.Errorf("[runner] unknown option: %s", rest)
+				}
+				return options{}, fmt.Errorf("[runner] unexpected argument: %s", rest)
 			}
-			return options{}, fmt.Errorf("[runner] unexpected argument: %s", rest)
 		}
 	}
 
-	major := 0
+	flagCount := 0
 	if opts.help {
-		major++
+		flagCount++
 	}
 	if opts.version {
-		major++
+		flagCount++
 	}
 	if opts.list {
-		major++
+		flagCount++
 	}
-	if major > 1 {
+	if flagCount > 1 {
 		return options{}, fmt.Errorf("[runner] unknown option: conflicting options")
 	}
 	if (opts.help || opts.version || opts.list) && opts.target != "" {
@@ -155,8 +158,9 @@ func runList(stdout, stderr io.Writer) int {
 		if e.IsDir() {
 			continue
 		}
-		if strings.HasSuffix(e.Name(), ".run") {
-			names = append(names, strings.TrimSuffix(e.Name(), ".run"))
+		name := e.Name()
+		if strings.HasSuffix(name, ".run") {
+			names = append(names, strings.TrimSuffix(name, ".run"))
 		}
 	}
 	sort.Strings(names)
@@ -195,7 +199,7 @@ func buildRunPlan(opts options) (runPlan, error) {
 }
 
 func resolveTarget(target string) string {
-	if filepath.Ext(target) != "" {
+	if ext := filepath.Ext(target); ext != "" {
 		return target
 	}
 	return target + ".run"
@@ -214,31 +218,27 @@ func buildRunPlanFromFile(target string, cfg envConfig) (runPlan, error) {
 	if !ok {
 		return runPlan{}, fmt.Errorf("[runner] runtime not defined: %s", runtimeName)
 	}
-	cmd, err := splitCommand(cmdStr)
+	args, err := splitCommand(cmdStr)
 	if err != nil {
 		return runPlan{}, err
 	}
-	cmd = append(cmd, target)
-	return runPlan{Command: cmd}, nil
+	args = append(args, target)
+	return runPlan{Command: args}, nil
 }
 
 func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, error) {
-	data, err := os.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return runPlan{}, err
 	}
-
-	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	text := strings.ReplaceAll(string(content), "\r\n", "\n")
 	text = strings.TrimPrefix(text, "\ufeff")
 	lines := strings.Split(text, "\n")
-	if len(lines) == 0 || lines[0] == "" {
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
 		return runPlan{}, fmt.Errorf("[runner] invalid .run format\nmissing header")
 	}
 	header := lines[0]
-	if !strings.HasPrefix(header, "#") {
-		return runPlan{}, fmt.Errorf("[runner] invalid .run format\nmissing header")
-	}
-	if header == "#" {
+	if !strings.HasPrefix(header, "#") || header == "#" {
 		return runPlan{}, fmt.Errorf("[runner] invalid .run header")
 	}
 	body := ""
@@ -246,59 +246,59 @@ func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, erro
 		body = strings.Join(lines[1:], "\n")
 	}
 
-	runtimeName, tempName, err := resolveRunHeader(strings.TrimPrefix(header, "#"), cfg)
-	if err != nil {
-		return runPlan{}, err
+	var runtimeName, tempExt string
+	h := strings.TrimPrefix(header, "#")
+	switch {
+	case strings.HasPrefix(h, "."):
+		ext := strings.TrimPrefix(h, ".")
+		if ext == "" {
+			return runPlan{}, fmt.Errorf("[runner] invalid .run header")
+		}
+		rn, ok := cfg.ext[ext]
+		if !ok {
+			return runPlan{}, fmt.Errorf("[runner] extension not mapped: .%s", ext)
+		}
+		runtimeName = rn
+		tempExt = "." + ext
+	case strings.Contains(h, "."):
+		parts := strings.Split(h, ".")
+		ext := parts[len(parts)-1]
+		if ext == "" {
+			return runPlan{}, fmt.Errorf("[runner] invalid .run header")
+		}
+		rn, ok := cfg.ext[ext]
+		if !ok {
+			return runPlan{}, fmt.Errorf("[runner] extension not mapped: .%s", ext)
+		}
+		runtimeName = rn
+		tempExt = "." + ext
+	default:
+		runtimeName = h
+		tempExt = ""
 	}
 
 	cmdStr, ok := cfg.runtime[runtimeName]
 	if !ok {
 		return runPlan{}, fmt.Errorf("[runner] runtime not defined: %s", runtimeName)
 	}
-	cmd, err := splitCommand(cmdStr)
+	args, err := splitCommand(cmdStr)
 	if err != nil {
 		return runPlan{}, err
 	}
-	tempPath := filepath.Join(os.TempDir(), tempName)
-	cmd = append(cmd, tempPath)
 
-	if dryRun {
-		return runPlan{Command: cmd, TempPath: tempPath, UseTemp: true}, nil
+	tempPath, err := makeTempPath(tempExt)
+	if err != nil {
+		return runPlan{}, err
 	}
 
+	args = append(args, tempPath)
+	if dryRun {
+		return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
+	}
 	if err := os.WriteFile(tempPath, []byte(body), 0o600); err != nil {
 		return runPlan{}, err
 	}
-	return runPlan{Command: cmd, TempPath: tempPath, UseTemp: true}, nil
-}
-
-func resolveRunHeader(h string, cfg envConfig) (runtimeName, tempName string, err error) {
-	if strings.HasPrefix(h, ".") {
-		ext := strings.TrimPrefix(h, ".")
-		if ext == "" {
-			return "", "", fmt.Errorf("[runner] invalid .run header")
-		}
-		rn, ok := cfg.ext[ext]
-		if !ok {
-			return "", "", fmt.Errorf("[runner] extension not mapped: .%s", ext)
-		}
-		return rn, "runner_tmp." + ext, nil
-	}
-
-	if strings.Contains(h, ".") {
-		parts := strings.Split(h, ".")
-		ext := parts[len(parts)-1]
-		if ext == "" {
-			return "", "", fmt.Errorf("[runner] invalid .run header")
-		}
-		rn, ok := cfg.ext[ext]
-		if !ok {
-			return "", "", fmt.Errorf("[runner] extension not mapped: .%s", ext)
-		}
-		return rn, h, nil
-	}
-
-	return h, "runner_tmp", nil
+	return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
 }
 
 func loadEnv(path string) (envConfig, error) {
@@ -307,17 +307,10 @@ func loadEnv(path string) (envConfig, error) {
 		return envConfig{}, fmt.Errorf("[runner] file not found: %s", path)
 	}
 	defer f.Close()
-
 	cfg := envConfig{runtime: map[string]string{}, ext: map[string]string{}}
 	s := bufio.NewScanner(f)
-	first := true
 	for s.Scan() {
-		line := s.Text()
-		if first {
-			line = strings.TrimPrefix(line, "\ufeff")
-			first = false
-		}
-		line = strings.TrimSpace(line)
+		line := strings.TrimSpace(strings.TrimPrefix(s.Text(), "\ufeff"))
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -325,13 +318,13 @@ func loadEnv(path string) (envConfig, error) {
 		if len(parts) != 2 {
 			continue
 		}
-		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		if strings.HasPrefix(key, "runtime.") {
-			cfg.runtime[strings.TrimPrefix(key, "runtime.")] = val
+		k := strings.TrimSpace(parts[0])
+		v := strings.TrimSpace(parts[1])
+		if strings.HasPrefix(k, "runtime.") {
+			cfg.runtime[strings.TrimPrefix(k, "runtime.")] = v
 		}
-		if strings.HasPrefix(key, "ext.") {
-			cfg.ext[strings.TrimPrefix(key, "ext.")] = val
+		if strings.HasPrefix(k, "ext.") {
+			cfg.ext[strings.TrimPrefix(k, "ext.")] = v
 		}
 	}
 	if err := s.Err(); err != nil {
@@ -344,7 +337,6 @@ func splitCommand(s string) ([]string, error) {
 	var out []string
 	var cur strings.Builder
 	inQuote := false
-
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		switch c {
@@ -373,15 +365,31 @@ func splitCommand(s string) ([]string, error) {
 			cur.WriteByte(c)
 		}
 	}
-
 	if inQuote {
-		return nil, fmt.Errorf("[runner] invalid runtime command")
+		return nil, fmt.Errorf("[runner] invalid .run header")
 	}
 	if cur.Len() > 0 {
 		out = append(out, cur.String())
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("[runner] invalid runtime command")
+		return nil, fmt.Errorf("[runner] runtime not defined: empty")
 	}
 	return out, nil
+}
+
+func makeTempPath(ext string) (string, error) {
+	suffix, err := randomHex(8)
+	if err != nil {
+		return "", err
+	}
+	name := "runner-" + suffix + ext
+	return filepath.Join(os.TempDir(), name), nil
+}
+
+func randomHex(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
