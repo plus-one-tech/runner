@@ -285,10 +285,7 @@ func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, erro
 	if err != nil {
 		return runPlan{}, err
 	}
-	tempFile, err := os.CreateTemp("", "runner-*"+tempExt)
-	if err != nil {
-		return runPlan{}, err
-	}
+
 	tempPath, err := makeTempPath(tempExt)
 	if err != nil {
 		return runPlan{}, err
