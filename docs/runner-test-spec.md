@@ -482,6 +482,51 @@ runner install.run
 
 ---
 
+### AT-05A 同一OSブロック重複
+
+前提:
+install.run に同一 OS ブロックが複数存在する（例: @windows が2回）
+
+操作:
+runner install.run を実行
+
+期待結果:
+エラー終了する
+標準エラーに以下を含む
+
+[runner] duplicate os block: windows
+
+---
+
+### AT-05B 未知のOSブロック
+
+前提:
+install.run に未対応の OS マーカー（例: @freebsd）が含まれる
+
+操作:
+runner install.run を実行
+
+期待結果:
+エラー終了する
+標準エラーに以下を含む
+
+[runner] unknown os block: freebsd
+
+---
+
+### AT-05C OSブロックなし
+
+前提:
+install.run が #script 形式であるが、@windows / @linux / @macos のいずれも含まない
+
+操作:
+runner install.run を実行
+
+期待結果:
+エラー終了する
+
+---
+
 ## 6. `.run` 一時ファイル
 
 ### AT-060 `.run` は一時ファイルに展開する
@@ -568,6 +613,33 @@ runner install.run
 * 現在 OS に対応するブロックだけを選択する
 * 選択したブロックの本文だけを一時ファイルへ展開する
 * `#script` や `@windows` などの構造行は一時ファイルに含めない
+
+---
+
+### AT-065 Windows pwsh 一時ファイル拡張子
+
+前提:
+#script または #pwsh 形式の .run ファイルが存在する
+
+操作:
+Windows 環境で runner hello.run を実行
+
+期待結果:
+pwsh に渡される一時ファイルは .ps1 拡張子を持つ
+
+---
+
+### AT-066 非選択OSブロックは実行されない
+
+前提:
+install.run に複数の OS ブロックがあり、それぞれ異なる副作用（例: ファイル生成）を持つ
+
+操作:
+runner install.run を実行
+
+期待結果:
+現在の OS に対応するブロックのみ実行される
+他の OS ブロックは実行されない
 
 ---
 

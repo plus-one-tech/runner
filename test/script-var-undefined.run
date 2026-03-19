@@ -1,0 +1,5 @@
+#script
+
+@linux
+#bash
+cp runner ${var.install_dir.linux}/runner ${var.undefined}

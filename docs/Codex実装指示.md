@@ -37,6 +37,72 @@
 15. 終了コード伝播
 16. 仕様に定義されたエラー処理
 
+## テストデータの利用
+
+実装は、提供された testdata ディレクトリを使用して検証すること。
+
+testdata に含まれるファイルを用いて、受入テスト仕様の各テストケースを再現できること。
+
+### テストデータ対応
+
+* script-duplicate-os.run → AT-05A
+* script-unknown-os.run → AT-05B
+* script-no-os-block.run → AT-05C
+* script-missing-runtime.run → AT-058
+* script-invalid-outer-body.run → AT-059
+
+## golden ファイルとの一致
+
+#script モードにおいて生成されるスクリプトは、
+testdata/golden 配下のファイルと一致すること。
+
+比較は以下の条件で行う:
+
+* 改行コードの差異は許容する（LF / CRLF）
+* それ以外は完全一致とする
+
+## エラーケース
+
+以下の testdata ファイルはエラーになること:
+
+* script-duplicate-os.run
+* script-unknown-os.run
+* script-no-os-block.run
+* script-missing-runtime.run
+* script-invalid-outer-body.run
+
+エラー時は、受入テスト仕様に記載されたメッセージを出力すること。
+
+## OS依存テスト
+
+以下のファイルは OS に依存する:
+
+* script-side-effects.run
+* script-windows-only.run
+* script-linux-only.run
+
+実行環境の OS に応じて、該当するブロックのみが実行されること。
+
+## runner.env の適用
+
+testdata/env 配下の runner.env を読み込んで動作すること。
+
+特に以下を確認すること:
+
+* runtime の解決
+* ext の解決
+* var の展開
+
+## dry-run の検証
+
+dry-run 実行時は以下を検証対象とする:
+
+* 実行コマンドが正しいこと
+* OS 判定が正しいこと
+* 展開スクリプトが正しいこと
+
+---
+
 ## 受け入れ条件
 
 実装は、次の受け入れテストをすべて満たすこと。
@@ -51,7 +117,7 @@
 
 ### dry-run
 
-* AT-030 〜 AT-031
+* AT-030 〜 AT-032
 
 ### オプション
 
@@ -59,11 +125,11 @@
 
 ### `.run` ヘッダ
 
-* AT-050 〜 AT-056
+* AT-050 〜 AT-05C
 
 ### `.run` 一時ファイル
 
-* AT-060 〜 AT-063
+* AT-060 〜 AT-066
 
 ### `runner.env` 読み込み
 

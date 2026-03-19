@@ -1,0 +1,13 @@
+#script
+
+@windows
+#pwsh
+Copy-Item runner.exe ${var.install_dir.windows}\runner.exe
+
+@linux
+#bash
+cp runner ${var.install_dir.linux}/runner
+
+@macos
+#bash
+cp runner ${var.install_dir.macos}/runner

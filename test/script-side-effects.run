@@ -1,0 +1,13 @@
+#script
+
+@windows
+#pwsh
+New-Item -ItemType File -Path windows-only.txt -Force | Out-Null
+
+@linux
+#bash
+touch linux-only.txt
+
+@macos
+#bash
+touch macos-only.txt

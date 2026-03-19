@@ -1,0 +1,9 @@
+#script
+
+@windows
+#pwsh
+Write-Host "first"
+
+@windows
+#pwsh
+Write-Host "second"

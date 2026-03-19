@@ -1,0 +1,5 @@
+#script
+
+@windows
+#pwsh
+Write-Host "windows only"
