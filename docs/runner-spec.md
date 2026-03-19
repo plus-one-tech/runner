@@ -861,13 +861,16 @@ runner は実行終了後に一時ファイルを削除する。
 /tmp/runner_tmp.py
 ```
 
+一時ファイル名は、同時実行時に衝突しない一意な名前でなければならない。
+固定名の再利用は行わない。
+
 #### 2.9.6 dry-run
 
 dry-run では一時ファイル名は決定するが、ファイル自体は生成しない。
 
 ---
 
-#### 2.9.x Windows の一時ファイル拡張子
+#### 2.9.7 Windows の一時ファイル拡張子
 
 Windows (pwsh) で実行する場合、一時ファイルは `.ps1` 拡張子を持つ必要がある。
 runner は runtime が pwsh の場合、必ず `.ps1` 拡張子で一時ファイルを生成する。
@@ -1234,6 +1237,16 @@ runner.env の読み込みは次の規則で行う。
   
 ---
 
+### 3.2.4 runner.env が存在しない場合
+
+runner.env が必要な処理において、runner.env が存在しない場合はエラーとする。
+
+例
+
+[runner] file not found: runner.env
+
+---
+
 ### 3.3 runtime 定義
 
 runtime は次の形式で定義する。
@@ -1281,6 +1294,12 @@ runner は次の形式で実行する。
 ```text
 python -u program.py
 ```
+
+不正なクォート（閉じ忘れを含む）の場合はエラーとする。
+
+エラーメッセージは次とする。
+
+[runner] invalid runtime command
 
 #### 3.3.2 実行方式
 
