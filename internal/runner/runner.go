@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bufio"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -10,19 +9,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
 
 const version = "0.1.0"
-
-type options struct {
-	dryRun  bool
-	help    bool
-	version bool
-	list    bool
-	target  string
-}
 
 type runPlan struct {
 	Command  []string
@@ -33,6 +25,7 @@ type runPlan struct {
 type envConfig struct {
 	runtime map[string]string
 	ext     map[string]string
+	vars    map[string]string
 }
 
 func Main(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -60,6 +53,10 @@ func Main(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 
+	if opts.check {
+		return 0
+	}
+
 	fmt.Fprintf(stdout, "[runner] command: %s\n", strings.Join(plan.Command, " "))
 	if opts.dryRun {
 		return 0
@@ -82,60 +79,6 @@ func Main(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stderr, "[runner] %s\n", err.Error())
 	return 1
-}
-
-func parseArgs(args []string) (options, error) {
-	var opts options
-	for i, arg := range args {
-		if strings.HasPrefix(arg, "-") {
-			if opts.target != "" {
-				return options{}, fmt.Errorf("[runner] unknown option: %s", arg)
-			}
-			switch arg {
-			case "-n", "--dry-run":
-				opts.dryRun = true
-			case "-h", "--help":
-				opts.help = true
-			case "--version":
-				opts.version = true
-			case "--list":
-				opts.list = true
-			default:
-				return options{}, fmt.Errorf("[runner] unknown option: %s", arg)
-			}
-			continue
-		}
-		if opts.target != "" {
-			return options{}, fmt.Errorf("[runner] unexpected argument: %s", arg)
-		}
-		opts.target = arg
-		if i != len(args)-1 {
-			for _, rest := range args[i+1:] {
-				if strings.HasPrefix(rest, "-") {
-					return options{}, fmt.Errorf("[runner] unknown option: %s", rest)
-				}
-				return options{}, fmt.Errorf("[runner] unexpected argument: %s", rest)
-			}
-		}
-	}
-
-	flagCount := 0
-	if opts.help {
-		flagCount++
-	}
-	if opts.version {
-		flagCount++
-	}
-	if opts.list {
-		flagCount++
-	}
-	if flagCount > 1 {
-		return options{}, fmt.Errorf("[runner] unknown option: conflicting options")
-	}
-	if (opts.help || opts.version || opts.list) && opts.target != "" {
-		return options{}, fmt.Errorf("[runner] unexpected argument: %s", opts.target)
-	}
-	return opts, nil
 }
 
 func printHelp(w io.Writer) {
@@ -187,13 +130,13 @@ func buildRunPlan(opts options) (runPlan, error) {
 		}
 	}
 
-	cfg, err := loadEnv("runner.env")
+	cfg, err := loadEnv(opts.envPath)
 	if err != nil {
 		return runPlan{}, err
 	}
 
 	if strings.HasSuffix(target, ".run") {
-		return buildRunPlanFromRun(target, cfg, opts.dryRun)
+		return buildRunPlanFromRun(target, cfg, opts)
 	}
 	return buildRunPlanFromFile(target, cfg)
 }
@@ -226,55 +169,19 @@ func buildRunPlanFromFile(target string, cfg envConfig) (runPlan, error) {
 	return runPlan{Command: args}, nil
 }
 
-func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, error) {
+func buildRunPlanFromRun(path string, cfg envConfig, opts options) (runPlan, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return runPlan{}, err
 	}
-	text := strings.ReplaceAll(string(content), "\r\n", "\n")
-	text = strings.TrimPrefix(text, "\ufeff")
-	lines := strings.Split(text, "\n")
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
-		return runPlan{}, fmt.Errorf("[runner] invalid .run format\nmissing header")
-	}
-	header := lines[0]
-	if !strings.HasPrefix(header, "#") || header == "#" {
-		return runPlan{}, fmt.Errorf("[runner] invalid .run header")
-	}
-	body := ""
-	if len(lines) > 1 {
-		body = strings.Join(lines[1:], "\n")
+	rf, err := parseRunFile(string(content))
+	if err != nil {
+		return runPlan{}, err
 	}
 
-	var runtimeName, tempExt string
-	h := strings.TrimPrefix(header, "#")
-	switch {
-	case strings.HasPrefix(h, "."):
-		ext := strings.TrimPrefix(h, ".")
-		if ext == "" {
-			return runPlan{}, fmt.Errorf("[runner] invalid .run header")
-		}
-		rn, ok := cfg.ext[ext]
-		if !ok {
-			return runPlan{}, fmt.Errorf("[runner] extension not mapped: .%s", ext)
-		}
-		runtimeName = rn
-		tempExt = "." + ext
-	case strings.Contains(h, "."):
-		parts := strings.Split(h, ".")
-		ext := parts[len(parts)-1]
-		if ext == "" {
-			return runPlan{}, fmt.Errorf("[runner] invalid .run header")
-		}
-		rn, ok := cfg.ext[ext]
-		if !ok {
-			return runPlan{}, fmt.Errorf("[runner] extension not mapped: .%s", ext)
-		}
-		runtimeName = rn
-		tempExt = "." + ext
-	default:
-		runtimeName = h
-		tempExt = ""
+	runtimeName, tempExt, body, err := resolveRunFileTarget(rf, cfg, opts)
+	if err != nil {
+		return runPlan{}, err
 	}
 
 	cmdStr, ok := cfg.runtime[runtimeName]
@@ -292,7 +199,7 @@ func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, erro
 	}
 
 	args = append(args, tempPath)
-	if dryRun {
+	if opts.dryRun {
 		return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
 	}
 	if err := os.WriteFile(tempPath, []byte(body), 0o600); err != nil {
@@ -301,36 +208,64 @@ func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, erro
 	return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
 }
 
-func loadEnv(path string) (envConfig, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return envConfig{}, fmt.Errorf("[runner] file not found: %s", path)
+func resolveRunFileTarget(rf runFile, cfg envConfig, opts options) (string, string, string, error) {
+	switch rf.kind {
+	case runFileKindNormal:
+		runtimeName, tempExt, err := resolveNormalHeader(rf.normal.header, cfg)
+		if err != nil {
+			return "", "", "", err
+		}
+		return runtimeName, tempExt, rf.normal.body, nil
+	case runFileKindScript:
+		osName := currentRunnerOS()
+		if opts.dryRunOS != "" && opts.dryRunOS != "all" {
+			osName = opts.dryRunOS
+		}
+		block, ok := rf.script.blocks[osName]
+		if !ok {
+			return "", "", "", fmt.Errorf("[runner] os block not found: %s", osName)
+		}
+		return block.runtimeName, tempExtForRuntime(block.runtimeName), block.body, nil
+	default:
+		return "", "", "", fmt.Errorf("[runner] invalid .run header")
 	}
-	defer f.Close()
-	cfg := envConfig{runtime: map[string]string{}, ext: map[string]string{}}
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		line := strings.TrimSpace(strings.TrimPrefix(s.Text(), "\ufeff"))
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
+}
+
+func resolveNormalHeader(h header, cfg envConfig) (string, string, error) {
+	switch h.kind {
+	case headerKindRuntime:
+		return h.runtimeName, "", nil
+	case headerKindFilename, headerKindExt:
+		runtimeName, ok := cfg.ext[h.extension]
+		if !ok {
+			return "", "", fmt.Errorf("[runner] extension not mapped: .%s", h.extension)
 		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		k := strings.TrimSpace(parts[0])
-		v := strings.TrimSpace(parts[1])
-		if strings.HasPrefix(k, "runtime.") {
-			cfg.runtime[strings.TrimPrefix(k, "runtime.")] = v
-		}
-		if strings.HasPrefix(k, "ext.") {
-			cfg.ext[strings.TrimPrefix(k, "ext.")] = v
-		}
+		return runtimeName, "." + h.extension, nil
+	default:
+		return "", "", fmt.Errorf("[runner] invalid .run header")
 	}
-	if err := s.Err(); err != nil {
-		return envConfig{}, err
+}
+
+func currentRunnerOS() string {
+	switch os.Getenv("RUNNER_TEST_OS_OVERRIDE") {
+	case "windows", "linux", "macos":
+		return os.Getenv("RUNNER_TEST_OS_OVERRIDE")
 	}
-	return cfg, nil
+	switch runtime.GOOS {
+	case "windows":
+		return "windows"
+	case "darwin":
+		return "macos"
+	default:
+		return "linux"
+	}
+}
+
+func tempExtForRuntime(runtimeName string) string {
+	if runtimeName == "pwsh" {
+		return ".ps1"
+	}
+	return ""
 }
 
 func splitCommand(s string) ([]string, error) {
@@ -366,7 +301,7 @@ func splitCommand(s string) ([]string, error) {
 		}
 	}
 	if inQuote {
-		return nil, fmt.Errorf("[runner] invalid .run header")
+		return nil, fmt.Errorf("[runner] invalid runtime command")
 	}
 	if cur.Len() > 0 {
 		out = append(out, cur.String())
