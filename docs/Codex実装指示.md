@@ -86,7 +86,7 @@ testdata/golden 配下のファイルと一致すること。
 ## runner.env の適用
 
 テストでは `--env testdata/env/runner.env` を指定して実行すること。
-runner.env の読み込みは仕様に従い、`--env` によって明示指定された場合のみ使用する。
+指定がない場合は、既定の `.env` ファイルの読み込みとする。
 
 特に以下を確認すること:
 
