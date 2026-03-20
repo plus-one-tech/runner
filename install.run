@@ -1,0 +1,24 @@
+#script
+
+@windows
+#pwsh
+$dest = "$env:LOCALAPPDATA\runner"
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+Copy-Item runner.exe "$dest\runner.exe" -Force
+Write-Output "installed to $dest"
+
+@linux
+#bash
+dest="$HOME/.local/bin"
+mkdir -p "$dest"
+cp runner "$dest/runner"
+chmod +x "$dest/runner"
+echo "installed to $dest"
+
+@macos
+#bash
+dest="$HOME/.local/bin"
+mkdir -p "$dest"
+cp runner "$dest/runner"
+chmod +x "$dest/runner"
+echo "installed to $dest"

@@ -14,8 +14,6 @@ runner
 
 `runner` is designed to make script execution and task running simple and predictable.
 
-It eliminates the need for multiple tools like make, shell scripts, or task runners by providing a single, unified entry point.
-
 It focuses on three goals:
 
 * **Unified execution** – run scripts and tasks using the same command
@@ -23,16 +21,6 @@ It focuses on three goals:
 * **Minimal design** – avoid complex DSLs or heavy configuration
 
 Unlike many task runners, `runner` does not introduce a new scripting language. Task files simply contain normal program code.
-
-## Basic Usage
-
-### Run a script
-
-```bash
-runner hello.py
-```
-
-### Run a task
 
 ## Basic Usage
 
@@ -55,11 +43,7 @@ If `build.run` exists:
 dotnet run ./src/build.cs
 ```
 
-`runner` simply executes what is written in the `.run` file:
-
-```bash
-dotnet run ./src/build.cs
-```
+`runner` simply executes what is written in the `.run` file.
 
 ### Run default task
 
@@ -68,6 +52,34 @@ runner
 ```
 
 If `runfile.run` exists, it will be executed.
+
+## Common Options
+
+### Preview execution
+
+```bash
+runner --dry-run build.run
+runner --dry-run=windows install.run
+runner --dry-run=all install.run
+```
+
+### Validate without execution
+
+```bash
+runner --check build.run
+```
+
+### Use a specific config file
+
+```bash
+runner --env ./runner.env install.run
+```
+
+### List available tasks
+
+```bash
+runner --list
+```
 
 ## `.run` Files
 
@@ -80,21 +92,20 @@ Example:
 print("Hello Runner")
 ```
 
-The first line specifies the runtime.
-
 Supported header styles:
 
 ```text
 #python
 #program.py
 #.py
+#script
 ```
 
 The rest of the file is executed as normal program code.
 
 ## Configuration
 
-`runner` can be configured using `runner.env`.
+`runner` uses `runner.env` to map runtimes and extensions to actual commands.
 
 Example:
 
@@ -108,7 +119,16 @@ ext.js=node
 ext.sh=bash
 ```
 
-This maps file extensions and runtimes to actual commands.
+By default, `runner.env` is loaded from the user configuration directory.
+You can also specify it explicitly with `--env`.
+
+## Install Task
+
+If `install.run` and `runner.env` are provided together, run:
+
+```bash
+runner --env ./runner.env install.run
+```
 
 ## Specification
 
@@ -118,9 +138,9 @@ Full specification is available here:
 
 ## Status
 
-The project is currently in the **specification stage**.
+The project is currently in the final specification phase.
 
-Implementation will start after the specification stabilizes.
+Implementation is planned next.
 
 ## License
 
