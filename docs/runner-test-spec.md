@@ -494,7 +494,9 @@ runner install.run を実行
 エラー終了する
 標準エラーに以下を含む
 
+```text
 [runner] duplicate os block: windows
+```
 
 ---
 
@@ -510,7 +512,9 @@ runner install.run を実行
 エラー終了する
 標準エラーに以下を含む
 
+```text
 [runner] unknown os block: freebsd
+```
 
 ---
 
@@ -524,6 +528,11 @@ runner install.run を実行
 
 期待結果:
 エラー終了する
+標準エラーに以下を含む
+
+```text
+[runner] os block not found: <current-os>
+```
 
 ---
 

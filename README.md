@@ -14,6 +14,8 @@ runner
 
 `runner` is designed to make script execution and task running simple and predictable.
 
+It eliminates the need for multiple tools like make, shell scripts, or task runners by providing a single, unified entry point.
+
 It focuses on three goals:
 
 * **Unified execution** – run scripts and tasks using the same command
@@ -32,19 +34,40 @@ runner hello.py
 
 ### Run a task
 
-If `build.run` exists:
+## Basic Usage
+
+### Run a script
+
+```bash
+runner hello.py
+```
+
+### Run a task
 
 ```bash
 runner build
 ```
 
-### Run default task
+If `build.run` exists:
 
-If `runfile.run` exists:
+```text
+#bash
+dotnet run ./src/build.cs
+```
+
+`runner` simply executes what is written in the `.run` file:
+
+```bash
+dotnet run ./src/build.cs
+```
+
+### Run default task
 
 ```bash
 runner
 ```
+
+If `runfile.run` exists, it will be executed.
 
 ## `.run` Files
 
