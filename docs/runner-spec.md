@@ -1295,11 +1295,11 @@ runner は次の形式で実行する。
 python -u program.py
 ```
 
-不正なクォート（閉じ忘れを含む）の場合はエラーとする。
+`<command>` が解釈できない場合、エラーメッセージは次とする。
 
-エラーメッセージは次とする。
-
+```text
 [runner] invalid runtime command
+```
 
 #### 3.3.2 実行方式
 
