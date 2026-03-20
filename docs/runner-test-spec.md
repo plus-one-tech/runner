@@ -196,6 +196,68 @@ runner -n install.run
 
 ---
 
+### AT-033 --dry-run=windows
+
+入力:
+
+runner --dry-run=windows script.run
+
+期待:
+
+* windows ブロックのみ表示
+
+---
+
+### AT-034 --dry-run=linux
+
+入力:
+
+runner --dry-run=linux script.run
+
+期待:
+
+* linux ブロックのみ表示
+
+---
+
+### AT-035 --dry-run=macos
+
+入力:
+
+runner --dry-run=macos script.run
+
+期待:
+
+* macos ブロックのみ表示
+
+---
+
+### AT-036 --dry-run=all
+
+入力:
+
+runner --dry-run=all script.run
+
+期待:
+
+* 全 OS ブロックを順に表示
+
+---
+
+### AT-037 不正 OS
+
+入力:
+
+runner --dry-run=freebsd script.run
+
+期待:
+
+```error
+[runner] unknown os: freebsd
+```
+
+---
+
 ## 4. オプション
 
 ### AT-040 `--help`
@@ -245,6 +307,7 @@ runner --list
 * 再帰探索は行わない
 * `.run` タスク一覧を表示する
 * `.run` を拡張子なしで表示する
+* ファイル名の辞書順（昇順）で表示する
 * 終了コードは 0
 
 ---
@@ -266,19 +329,21 @@ runner --list
 
 ---
 
-### AT-044 無効オプション
+### AT-044 `--list` 対象なし
+
+**前提**
+カレントディレクトリに `.run` ファイルが存在しない。
 
 **操作**
 
 ```bash
-runner --check
+runner --list
 ```
 
 **期待結果**
 
-* エラー終了する
-* `unknown option: --check` を表示する
-* 非0を返す
+* 何も表示しない
+* 終了コードは 0
 
 ---
 
@@ -293,6 +358,75 @@ runner hello.py -n
 **期待結果**
 
 * エラー終了する
+* 非0を返す
+
+---
+
+### AT-046 --check は .run を解析する
+
+入力:
+
+runner --check build.run
+
+期待:
+
+* ヘッダ解析が行われる
+* エラーがなければ成功
+
+---
+
+### AT-047 --check は全 OS を検証する
+
+入力:
+
+runner --check script.run
+
+期待:
+
+* 全 OS ブロックが検証される
+* OS に依存しない
+
+---
+
+### AT-048: --check 正常終了
+
+入力:
+
+runner --check valid.run
+
+期待:
+
+* 出力は最小
+* 終了コード 0
+
+---
+
+### AT-049: --check と --dry-run 同時指定
+
+入力:
+
+runner --check --dry-run build.run
+
+期待:
+
+```error
+[runner] invalid option combination
+```
+
+---
+
+### AT-04A 無効オプション
+
+**操作**
+
+```bash
+runner --exec
+```
+
+**期待結果**
+
+* エラー終了する
+* `unknown option: --exec` を表示する
 * 非0を返す
 
 ---
@@ -774,6 +908,46 @@ runner hello.py
 
 ---
 
+### AT-076: --env 指定ファイルを使用
+
+入力:
+
+runner --env testdata/env/runner.env hello.py
+
+期待:
+
+* 指定された runner.env を使用する
+
+---
+
+### AT-077: --env ファイル不存在
+
+入力:
+
+runner --env notfound.env hello.py
+
+期待:
+
+```error
+[runner] file not found: notfound.env
+```
+
+---
+
+### AT-078: カレント runner.env は読まない
+
+入力:
+
+(カレントに runner.env が存在)
+
+runner hello.py
+
+期待:
+
+* カレントの runner.env は使用されない
+
+---
+
 ## 8. command 分割
 
 ### AT-080 command を空白で分割
@@ -883,6 +1057,7 @@ runner hello.py
 **期待結果**
 
 * エラー終了する
+* `invalid runtime command` を表示する
 * 非0を返す
 
 ---
