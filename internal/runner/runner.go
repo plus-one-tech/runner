@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -135,7 +136,7 @@ func buildRunPlan(opts options) (runPlan, error) {
 	}
 
 	if strings.HasSuffix(target, ".run") {
-		return buildRunPlanFromRun(target, cfg, opts.dryRun)
+		return buildRunPlanFromRun(target, cfg, opts)
 	}
 	return buildRunPlanFromFile(target, cfg)
 }
@@ -168,55 +169,19 @@ func buildRunPlanFromFile(target string, cfg envConfig) (runPlan, error) {
 	return runPlan{Command: args}, nil
 }
 
-func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, error) {
+func buildRunPlanFromRun(path string, cfg envConfig, opts options) (runPlan, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return runPlan{}, err
 	}
-	text := strings.ReplaceAll(string(content), "\r\n", "\n")
-	text = strings.TrimPrefix(text, "\ufeff")
-	lines := strings.Split(text, "\n")
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
-		return runPlan{}, fmt.Errorf("[runner] invalid .run format\nmissing header")
-	}
-	header := lines[0]
-	if !strings.HasPrefix(header, "#") || header == "#" {
-		return runPlan{}, fmt.Errorf("[runner] invalid .run header")
-	}
-	body := ""
-	if len(lines) > 1 {
-		body = strings.Join(lines[1:], "\n")
+	rf, err := parseRunFile(string(content))
+	if err != nil {
+		return runPlan{}, err
 	}
 
-	var runtimeName, tempExt string
-	h := strings.TrimPrefix(header, "#")
-	switch {
-	case strings.HasPrefix(h, "."):
-		ext := strings.TrimPrefix(h, ".")
-		if ext == "" {
-			return runPlan{}, fmt.Errorf("[runner] invalid .run header")
-		}
-		rn, ok := cfg.ext[ext]
-		if !ok {
-			return runPlan{}, fmt.Errorf("[runner] extension not mapped: .%s", ext)
-		}
-		runtimeName = rn
-		tempExt = "." + ext
-	case strings.Contains(h, "."):
-		parts := strings.Split(h, ".")
-		ext := parts[len(parts)-1]
-		if ext == "" {
-			return runPlan{}, fmt.Errorf("[runner] invalid .run header")
-		}
-		rn, ok := cfg.ext[ext]
-		if !ok {
-			return runPlan{}, fmt.Errorf("[runner] extension not mapped: .%s", ext)
-		}
-		runtimeName = rn
-		tempExt = "." + ext
-	default:
-		runtimeName = h
-		tempExt = ""
+	runtimeName, tempExt, body, err := resolveRunFileTarget(rf, cfg, opts)
+	if err != nil {
+		return runPlan{}, err
 	}
 
 	cmdStr, ok := cfg.runtime[runtimeName]
@@ -234,7 +199,7 @@ func buildRunPlanFromRun(path string, cfg envConfig, dryRun bool) (runPlan, erro
 	}
 
 	args = append(args, tempPath)
-	if dryRun {
+	if opts.dryRun {
 		return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
 	}
 	if err := os.WriteFile(tempPath, []byte(body), 0o600); err != nil {
