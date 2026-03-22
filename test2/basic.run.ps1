@@ -1,2 +1,0 @@
-#pwsh
-echo hello

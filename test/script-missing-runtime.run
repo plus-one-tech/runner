@@ -1,4 +1,0 @@
-#script
-
-@linux
-echo "missing runtime header"

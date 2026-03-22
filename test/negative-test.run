@@ -1,0 +1,47 @@
+#script
+
+@windows
+#pwsh
+$ErrorActionPreference = "Stop"
+
+Write-Output "=== N01 runtime error ==="
+..\bin\runner.exe -e .\runner.test.env test-error.run
+if ($LASTEXITCODE -eq 0) { throw "test-error.run should fail" }
+
+Write-Output "=== N02 missing target ==="
+..\bin\runner.exe -e .\runner.test.env missing
+if ($LASTEXITCODE -eq 0) { throw "missing should fail" }
+
+Write-Output "=== N03 missing os block ==="
+..\bin\runner.exe -e .\runner.test.env test-script-no-windows.run
+if ($LASTEXITCODE -eq 0) { throw "should fail" }
+
+Write-Output "=== N04 invalid check ==="
+..\bin\runner.exe -e .\runner.test.env --check bad-no-header.run
+if ($LASTEXITCODE -eq 0) { throw "invalid check should fail" }
+
+Write-Output "ALL NEGATIVE TESTS PASSED"
+
+@linux
+#bash
+set -eu
+
+echo "=== N01 runtime error ==="
+if ../bin/runner -e ./runner.test.env test-error.run; then
+  echo "test-error.run should fail"
+  exit 1
+fi
+
+echo "ALL NEGATIVE TESTS PASSED"
+
+@macos
+#bash
+set -eu
+
+echo "=== N01 runtime error ==="
+if ../bin/runner -e ./runner.test.env test-error.run; then
+  echo "test-error.run should fail"
+  exit 1
+fi
+
+echo "ALL NEGATIVE TESTS PASSED"

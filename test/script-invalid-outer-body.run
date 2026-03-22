@@ -1,7 +1,0 @@
-#script
-
-echo "invalid outer body"
-
-@linux
-#bash
-echo "linux"

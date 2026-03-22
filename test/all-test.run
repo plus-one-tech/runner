@@ -1,0 +1,39 @@
+#script
+
+@windows
+#pwsh
+$ErrorActionPreference = "Stop"
+
+Write-Output "=== POSITIVE ==="
+..\bin\runner.exe -e .\runner.test.env positive-test.run
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Output "=== NEGATIVE ==="
+..\bin\runner.exe -e .\runner.test.env negative-test.run
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Output "ALL TESTS PASSED"
+
+@linux
+#bash
+set -eu
+
+echo "=== POSITIVE ==="
+../bin/runner -e ./runner.test.env positive-test.run
+
+echo "=== NEGATIVE ==="
+../bin/runner -e ./runner.test.env negative-test.run
+
+echo "ALL TESTS PASSED"
+
+@macos
+#bash
+set -eu
+
+echo "=== POSITIVE ==="
+../bin/runner -e ./runner.test.env positive-test.run
+
+echo "=== NEGATIVE ==="
+../bin/runner -e ./runner.test.env negative-test.run
+
+echo "ALL TESTS PASSED"

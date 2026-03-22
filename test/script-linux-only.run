@@ -1,5 +1,0 @@
-#script
-
-@linux
-#bash
-echo "linux only"
