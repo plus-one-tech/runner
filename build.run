@@ -1,0 +1,43 @@
+#script
+
+@windows
+#pwsh
+$ErrorActionPreference = "Stop"
+
+if (!(Test-Path bin)) {
+    New-Item -ItemType Directory -Path bin | Out-Null
+}
+
+Write-Output "Building runner (Windows)..."
+
+go build -o bin\runner.exe ./cmd/runner
+
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Output "Build complete: bin\runner.exe"
+
+
+@linux
+#bash
+set -eu
+
+mkdir -p bin
+
+echo "Building runner (Linux)..."
+
+go build -o bin/runner ./cmd/runner
+
+echo "Build complete: bin/runner"
+
+
+@macos
+#bash
+set -eu
+
+mkdir -p bin
+
+echo "Building runner (macOS)..."
+
+go build -o bin/runner ./cmd/runner
+
+echo "Build complete: bin/runner"

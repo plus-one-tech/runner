@@ -48,7 +48,7 @@ func loadEnv(explicitPath string) (envConfig, error) {
 		case strings.HasPrefix(key, "ext."):
 			cfg.ext[strings.TrimPrefix(key, "ext.")] = value
 		case strings.HasPrefix(key, "var."):
-			cfg.vars[key] = value
+			cfg.vars[strings.TrimPrefix(key, "var.")] = value
 		}
 	}
 

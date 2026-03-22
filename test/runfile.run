@@ -1,2 +1,2 @@
-#bash
-echo "runfile"
+#pwsh
+Write-Output "runfile default"

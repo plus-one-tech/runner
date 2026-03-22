@@ -1,0 +1,62 @@
+#script
+
+@windows
+#pwsh
+$ErrorActionPreference = "Stop"
+
+Write-Output "=== P01 hello ==="
+..\bin\runner.exe -e .\runner.test.env test-hello.run
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Output "=== P02 echo ==="
+..\bin\runner.exe -e .\runner.test.env test-echo.run
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Output "=== P03 script ==="
+..\bin\runner.exe -e .\runner.test.env test-script.run
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Output "=== P04 check ==="
+..\bin\runner.exe -e .\runner.test.env --check test-check.run
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Output "=== P05 list ==="
+..\bin\runner.exe -e .\runner.test.env --list
+
+Write-Output "=== P06 name resolution ==="
+..\bin\runner.exe -e .\runner.test.env test-echo
+
+Write-Output "=== P07 default target ==="
+..\bin\runner.exe -e .\runner.test.env
+
+Write-Output "ALL POSITIVE TESTS PASSED"
+
+@linux
+#bash
+set -eu
+
+echo "=== P01 hello ==="
+../bin/runner -e ./runner.test.env test-hello.run
+
+echo "=== P02 echo ==="
+../bin/runner -e ./runner.test.env test-echo.run
+
+echo "=== P03 script ==="
+../bin/runner -e ./runner.test.env test-script.run
+
+echo "ALL POSITIVE TESTS PASSED"
+
+@macos
+#bash
+set -eu
+
+echo "=== P01 hello ==="
+../bin/runner -e ./runner.test.env test-hello.run
+
+echo "=== P02 echo ==="
+../bin/runner -e ./runner.test.env test-echo.run
+
+echo "=== P03 script ==="
+../bin/runner -e ./runner.test.env test-script.run
+
+echo "ALL POSITIVE TESTS PASSED"

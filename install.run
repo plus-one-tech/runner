@@ -1,24 +1,102 @@
 #script
 
+#script
+
 @windows
 #pwsh
-$dest = "$env:LOCALAPPDATA\runner"
-New-Item -ItemType Directory -Force -Path $dest | Out-Null
-Copy-Item runner.exe "$dest\runner.exe" -Force
-Write-Output "installed to $dest"
+$ErrorActionPreference = "Stop"
+
+$binDir = "$env:LOCALAPPDATA\runner"
+$configDir = "$env:APPDATA\runner"
+
+if (!(Test-Path $binDir)) {
+    New-Item -ItemType Directory -Path $binDir | Out-Null
+}
+if (!(Test-Path $configDir)) {
+    New-Item -ItemType Directory -Path $configDir | Out-Null
+}
+
+Copy-Item bin\runner.exe "$binDir\runner.exe" -Force
+
+if (!(Test-Path "$configDir\runner.env")) {
+    Copy-Item runner.env "$configDir\runner.env"
+}
+
+$userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+if (($userPath -split ';') -notcontains $binDir) {
+    $newPath = if ([string]::IsNullOrWhiteSpace($userPath)) {
+        $binDir
+    } else {
+        "$userPath;$binDir"
+    }
+    [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+    Write-Output "PATH updated: $binDir"
+    Write-Output "Please restart your terminal to apply PATH changes."
+} else {
+    Write-Output "PATH already contains: $binDir"
+}
 
 @linux
 #bash
-dest="$HOME/.local/bin"
-mkdir -p "$dest"
-cp runner "$dest/runner"
-chmod +x "$dest/runner"
-echo "installed to $dest"
+set -eu
+
+BIN_DIR="$HOME/.local/bin"
+CONFIG_DIR="$HOME/.config/runner"
+
+mkdir -p "$BIN_DIR"
+mkdir -p "$CONFIG_DIR"
+
+cp bin/runner "$BIN_DIR/runner"
+echo "Installed binary to $BIN_DIR"
+
+if [ ! -f "$CONFIG_DIR/runner.env" ]; then
+  cp runner.env "$CONFIG_DIR/runner.env"
+  echo "Installed config to $CONFIG_DIR"
+fi
+
+PROFILE="$HOME/.bashrc"
+
+# zsh優先
+if [ -n "${ZSH_VERSION:-}" ]; then
+  PROFILE="$HOME/.zshrc"
+fi
+
+if ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$PROFILE" 2>/dev/null; then
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$PROFILE"
+  echo "PATH updated in $PROFILE"
+  Write-Output "Please restart your terminal to apply PATH changes."
+else
+  echo "PATH already set in $PROFILE"
+fi
 
 @macos
 #bash
-dest="$HOME/.local/bin"
-mkdir -p "$dest"
-cp runner "$dest/runner"
-chmod +x "$dest/runner"
-echo "installed to $dest"
+set -eu
+
+BIN_DIR="$HOME/.local/bin"
+CONFIG_DIR="$HOME/Library/Application Support/runner"
+
+mkdir -p "$BIN_DIR"
+mkdir -p "$CONFIG_DIR"
+
+cp bin/runner "$BIN_DIR/runner"
+echo "Installed binary to $BIN_DIR"
+
+if [ ! -f "$CONFIG_DIR/runner.env" ]; then
+  cp runner.env "$CONFIG_DIR/runner.env"
+  echo "Installed config to $CONFIG_DIR"
+fi
+
+PROFILE="$HOME/.bashrc"
+
+# zsh優先
+if [ -n "${ZSH_VERSION:-}" ]; then
+  PROFILE="$HOME/.zshrc"
+fi
+
+if ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$PROFILE" 2>/dev/null; then
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$PROFILE"
+  echo "PATH updated in $PROFILE"
+else
+  echo "PATH already set in $PROFILE"
+fi

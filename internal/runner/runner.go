@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -47,14 +48,18 @@ func Main(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runList(stdout, stderr)
 	}
 
+	if opts.check {
+		if err := runCheck(opts); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
+	}
+
 	plan, err := buildRunPlan(opts)
 	if err != nil {
 		fmt.Fprintln(stderr, err.Error())
 		return 1
-	}
-
-	if opts.check {
-		return 0
 	}
 
 	fmt.Fprintf(stdout, "[runner] command: %s\n", strings.Join(plan.Command, " "))
@@ -113,21 +118,77 @@ func runList(stdout, stderr io.Writer) int {
 	return 0
 }
 
-func buildRunPlan(opts options) (runPlan, error) {
+func runCheck(opts options) error {
+	target, err := resolveTargetPath(opts)
+	if err != nil {
+		return err
+	}
+
+	cfg, err := loadEnv(opts.envPath)
+	if err != nil {
+		return err
+	}
+
+	if !strings.HasSuffix(target, ".run") {
+		_, err := buildRunPlan(opts)
+		return err
+	}
+
+	content, err := os.ReadFile(target)
+	if err != nil {
+		return err
+	}
+
+	rf, err := parseRunFile(string(content))
+	if err != nil {
+		return err
+	}
+
+	switch rf.kind {
+	case runFileKindNormal:
+		_, _, _, err := resolveRunFileTarget(rf, cfg, options{})
+		return err
+
+	case runFileKindScript:
+		for osName, block := range rf.script.blocks {
+			if _, ok := cfg.runtime[block.runtimeName]; !ok {
+				return fmt.Errorf("[runner] runtime not defined: %s (os: %s)", block.runtimeName, osName)
+			}
+
+			if _, err := expandVars(block.body, cfg.vars); err != nil {
+				return fmt.Errorf("%w (os: %s)", err, osName)
+			}
+		}
+		return nil
+
+	default:
+		return fmt.Errorf("[runner] invalid .run format")
+	}
+}
+
+func resolveTargetPath(opts options) (string, error) {
 	target := opts.target
 	if target == "" {
 		target = "runfile.run"
 		if _, err := os.Stat(target); err != nil {
-			return runPlan{}, fmt.Errorf("[runner] runfile.run not found")
+			return "", fmt.Errorf("[runner] runfile.run not found")
 		}
 	} else {
 		target = resolveTarget(target)
 		if _, err := os.Stat(target); err != nil {
 			if opts.target == target {
-				return runPlan{}, fmt.Errorf("[runner] file not found: %s", target)
+				return "", fmt.Errorf("[runner] file not found: %s", target)
 			}
-			return runPlan{}, fmt.Errorf("[runner] target not found: %s", target)
+			return "", fmt.Errorf("[runner] target not found: %s", target)
 		}
+	}
+	return target, nil
+}
+
+func buildRunPlan(opts options) (runPlan, error) {
+	target, err := resolveTargetPath(opts)
+	if err != nil {
+		return runPlan{}, err
 	}
 
 	cfg, err := loadEnv(opts.envPath)
@@ -198,7 +259,9 @@ func buildRunPlanFromRun(path string, cfg envConfig, opts options) (runPlan, err
 		return runPlan{}, err
 	}
 
-	args = append(args, tempPath)
+	scriptPath := runtimeScriptPath(runtimeName, tempPath, cfg)
+	args = append(args, scriptPath)
+
 	if opts.dryRun {
 		return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
 	}
@@ -215,7 +278,13 @@ func resolveRunFileTarget(rf runFile, cfg envConfig, opts options) (string, stri
 		if err != nil {
 			return "", "", "", err
 		}
-		return runtimeName, tempExt, rf.normal.body, nil
+
+		body, err := expandVars(rf.normal.body, cfg.vars)
+		if err != nil {
+			return "", "", "", err
+		}
+
+		return runtimeName, tempExt, body, nil
 	case runFileKindScript:
 		osName := currentRunnerOS()
 		if opts.dryRunOS != "" && opts.dryRunOS != "all" {
@@ -225,7 +294,13 @@ func resolveRunFileTarget(rf runFile, cfg envConfig, opts options) (string, stri
 		if !ok {
 			return "", "", "", fmt.Errorf("[runner] os block not found: %s", osName)
 		}
-		return block.runtimeName, tempExtForRuntime(block.runtimeName), block.body, nil
+
+		body, err := expandVars(block.body, cfg.vars)
+		if err != nil {
+			return "", "", "", err
+		}
+
+		return block.runtimeName, tempExtForRuntime(block.runtimeName), body, nil
 	default:
 		return "", "", "", fmt.Errorf("[runner] invalid .run header")
 	}
@@ -234,7 +309,7 @@ func resolveRunFileTarget(rf runFile, cfg envConfig, opts options) (string, stri
 func resolveNormalHeader(h header, cfg envConfig) (string, string, error) {
 	switch h.kind {
 	case headerKindRuntime:
-		return h.runtimeName, "", nil
+		return h.runtimeName, tempExtForRuntime(h.runtimeName), nil
 	case headerKindFilename, headerKindExt:
 		runtimeName, ok := cfg.ext[h.extension]
 		if !ok {
@@ -244,6 +319,84 @@ func resolveNormalHeader(h header, cfg envConfig) (string, string, error) {
 	default:
 		return "", "", fmt.Errorf("[runner] invalid .run header")
 	}
+}
+
+func tempExtForRuntime(runtimeName string) string {
+	if runtimeName == "pwsh" {
+		return ".ps1"
+	}
+	return ""
+}
+
+var varPattern = regexp.MustCompile(`\$\{var\.([a-zA-Z0-9_]+)\}`)
+
+func expandVars(s string, vars map[string]string) (string, error) {
+	var expandErr error
+
+	out := varPattern.ReplaceAllStringFunc(s, func(m string) string {
+		sub := varPattern.FindStringSubmatch(m)
+		if len(sub) != 2 {
+			expandErr = fmt.Errorf("[runner] invalid variable syntax: %s", m)
+			return ""
+		}
+
+		key := sub[1]
+		val, ok := vars[key]
+		if !ok {
+			expandErr = fmt.Errorf("[runner] undefined variable: %s", key)
+			return ""
+		}
+		return val
+	})
+
+	if expandErr != nil {
+		return "", expandErr
+	}
+	return out, nil
+}
+
+func runtimeScriptPath(runtimeName, path string, cfg envConfig) string {
+	if currentRunnerOS() != "windows" {
+		return path
+	}
+
+	switch runtimeName {
+	case "bash", "sh", "zsh":
+		cmd := cfg.runtime[runtimeName]
+		return toWindowsShellPath(path, cmd)
+	default:
+		return path
+	}
+}
+
+func toWindowsShellPath(path, cmd string) string {
+	slash := filepath.ToSlash(path)
+
+	if len(slash) >= 3 && slash[1] == ':' && slash[2] == '/' {
+		drive := strings.ToLower(slash[:1])
+		rest := slash[2:]
+
+		lowerCmd := strings.ToLower(cmd)
+		if strings.Contains(lowerCmd, "wsl") {
+			return "/mnt/" + drive + rest
+		}
+
+		return "/" + drive + rest
+	}
+
+	return slash
+}
+
+func toMSYSPath(path string) string {
+	slash := filepath.ToSlash(path)
+
+	if len(slash) >= 3 && slash[1] == ':' && slash[2] == '/' {
+		drive := slash[:1]
+		rest := slash[2:]
+		return "/" + strings.ToLower(drive) + rest
+	}
+
+	return slash
 }
 
 func currentRunnerOS() string {
@@ -259,13 +412,6 @@ func currentRunnerOS() string {
 	default:
 		return "linux"
 	}
-}
-
-func tempExtForRuntime(runtimeName string) string {
-	if runtimeName == "pwsh" {
-		return ".ps1"
-	}
-	return ""
 }
 
 func splitCommand(s string) ([]string, error) {

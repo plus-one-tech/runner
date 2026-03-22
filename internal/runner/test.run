@@ -1,0 +1,9 @@
+#script
+
+@windows
+#pwsh
+echo ${var.name}
+
+@linux
+#bash
+echo ${var.name}

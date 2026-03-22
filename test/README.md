@@ -1,16 +1,31 @@
-# runner testdata
+# runner test
 
-Suggested mapping:
-- hello.py / hello.run / build.run / runfile.run -> AT-010..AT-013, AT-020..AT-021
-- bad-no-header.run / bad-invalid-header.run / bad-header-leading-blank.run -> AT-053..AT-055
-- ok.run -> AT-056
-- install.run -> AT-032, AT-057, AT-064
-- script-missing-runtime.run -> AT-058
-- script-invalid-outer-body.run -> AT-059
-- script-duplicate-os.run -> proposed AT-059A
-- script-unknown-os.run -> proposed AT-059B
-- script-no-os-block.run -> proposed AT-059C
-- script-side-effects.run -> proposed AT-064B
-- env/*.runner.env -> AT-070..AT-085
-- script-vars.run + env/vars.runner.env -> variable expansion tests
-- utf8-bom.run / lf.run / crlf.run -> AT-112..AT-114
+## 概要
+
+このディレクトリには runner の受け入れテスト（.run ベース）を配置しています。
+
+## 実行方法
+
+```powershell
+cd test
+..\bin\runner.exe .\all-test.run
+```
+
+## 個別実行
+
+```powershell
+..\bin\runner.exe .\positive-test.run
+..\bin\runner.exe .\negative-test.run
+```
+
+## 単体テスト
+
+```bash
+go test ./...
+```
+
+## 前提
+
+* Windows は pwsh を使用
+* bash はテスト対象外（Unix系用）
+* 設定は runner.test.env を使用

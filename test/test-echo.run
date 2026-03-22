@@ -1,0 +1,13 @@
+#script
+
+@windows
+#pwsh
+Write-Output "echo test (windows)"
+
+@linux
+#bash
+echo "echo test (linux)"
+
+@macos
+#bash
+echo "echo test (mac)"

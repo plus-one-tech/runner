@@ -1,0 +1,3 @@
+#pwsh
+Write-Error "error test"
+exit 1
