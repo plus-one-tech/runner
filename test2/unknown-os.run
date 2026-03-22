@@ -1,0 +1,5 @@
+#script
+
+@solaris
+#bash
+echo test

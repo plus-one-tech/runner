@@ -208,6 +208,66 @@ func buildRunPlanFromRun(path string, cfg envConfig, opts options) (runPlan, err
 	return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
 }
 
+func resolveRunFileTarget(rf runFile, cfg envConfig, opts options) (string, string, string, error) {
+	switch rf.kind {
+	case runFileKindNormal:
+		runtimeName, tempExt, err := resolveNormalHeader(rf.normal.header, cfg)
+		if err != nil {
+			return "", "", "", err
+		}
+		return runtimeName, tempExt, rf.normal.body, nil
+	case runFileKindScript:
+		osName := currentRunnerOS()
+		if opts.dryRunOS != "" && opts.dryRunOS != "all" {
+			osName = opts.dryRunOS
+		}
+		block, ok := rf.script.blocks[osName]
+		if !ok {
+			return "", "", "", fmt.Errorf("[runner] os block not found: %s", osName)
+		}
+		return block.runtimeName, tempExtForRuntime(block.runtimeName), block.body, nil
+	default:
+		return "", "", "", fmt.Errorf("[runner] invalid .run header")
+	}
+}
+
+func resolveNormalHeader(h header, cfg envConfig) (string, string, error) {
+	switch h.kind {
+	case headerKindRuntime:
+		return h.runtimeName, "", nil
+	case headerKindFilename, headerKindExt:
+		runtimeName, ok := cfg.ext[h.extension]
+		if !ok {
+			return "", "", fmt.Errorf("[runner] extension not mapped: .%s", h.extension)
+		}
+		return runtimeName, "." + h.extension, nil
+	default:
+		return "", "", fmt.Errorf("[runner] invalid .run header")
+	}
+}
+
+func currentRunnerOS() string {
+	switch os.Getenv("RUNNER_TEST_OS_OVERRIDE") {
+	case "windows", "linux", "macos":
+		return os.Getenv("RUNNER_TEST_OS_OVERRIDE")
+	}
+	switch runtime.GOOS {
+	case "windows":
+		return "windows"
+	case "darwin":
+		return "macos"
+	default:
+		return "linux"
+	}
+}
+
+func tempExtForRuntime(runtimeName string) string {
+	if runtimeName == "pwsh" {
+		return ".ps1"
+	}
+	return ""
+}
+
 func splitCommand(s string) ([]string, error) {
 	var out []string
 	var cur strings.Builder

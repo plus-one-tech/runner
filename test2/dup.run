@@ -1,0 +1,9 @@
+#script
+
+@linux
+#bash
+echo 1
+
+@linux
+#bash
+echo 2
