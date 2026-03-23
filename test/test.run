@@ -1,0 +1,2 @@
+# test.run
+echo hello > test_output.txt

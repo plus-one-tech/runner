@@ -2,8 +2,10 @@ package runner
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -209,14 +211,6 @@ func TestResolveNormalHeaderExt(t *testing.T) {
 	}
 }
 
-func TestToMSYSPath(t *testing.T) {
-	got := toMSYSPath(`C:\Users\jun\AppData\Local\Temp\runner-123`)
-	want := `/c/Users/jun/AppData/Local/Temp/runner-123`
-	if got != want {
-		t.Fatalf("got %q, want %q", got, want)
-	}
-}
-
 func TestExpandVars(t *testing.T) {
 	vars := map[string]string{
 		"name": "jun",
@@ -266,5 +260,58 @@ echo ${var.name}
 
 	if code != 0 {
 		t.Fatalf("check failed: %s", errBuf.String())
+	}
+}
+
+func TestToWindowsShellPath(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows only")
+	}
+
+	path := `C:\Users\jun\AppData\Local\Temp\runner-123`
+
+	// Git Bash 想定
+	got := toWindowsShellPath(path, "bash")
+	want := "/c/Users/jun/AppData/Local/Temp/runner-123"
+
+	if got != want {
+		t.Fatalf("bash: got %q, want %q", got, want)
+	}
+
+	// WSL 想定
+	got = toWindowsShellPath(path, "wsl bash")
+	want = "/mnt/c/Users/jun/AppData/Local/Temp/runner-123"
+
+	if got != want {
+		t.Fatalf("wsl: got %q, want %q", got, want)
+	}
+}
+
+func TestDryRunPrintsCommand(t *testing.T) {
+	withDir(t)
+	write(t, "runner.env", "runtime.go=go run\next.go=go\n")
+	write(t, "build.run", "#.go\npackage main\nfunc main(){}\n")
+
+	var out, err bytes.Buffer
+	code := runMain(t, []string{"--dry-run", "build"}, &out, &err)
+
+	if code != 0 {
+		t.Fatalf("expected 0, got %d, err=%s", code, err.String())
+	}
+	if !strings.Contains(out.String(), "[runner] command: go run") {
+		t.Fatalf("out=%q", out.String())
+	}
+}
+
+func TestDryRunDoesNotExecute(t *testing.T) {
+	os.Remove("test_output.txt")
+
+	code := Main([]string{"-e", "runner.env", "--dry-run", "test.run"}, io.Discard, io.Discard)
+	if code != 0 {
+		t.Fatalf("expected 0, got %d", code)
+	}
+
+	if _, err := os.Stat("test_output.txt"); err == nil {
+		t.Fatal("file should not be created in dry-run")
 	}
 }
