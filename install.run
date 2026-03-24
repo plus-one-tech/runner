@@ -1,7 +1,5 @@
 #script
 
-#script
-
 @windows
 #pwsh
 $ErrorActionPreference = "Stop"

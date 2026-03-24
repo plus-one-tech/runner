@@ -1,3 +1,5 @@
+// runner_test.go
+
 package runner
 
 import (
@@ -12,7 +14,7 @@ import (
 
 func runMain(t *testing.T, args []string, out, errOut *bytes.Buffer) int {
 	t.Helper()
-	allArgs := append([]string{"-e", "runner.env"}, args...)
+	allArgs := append([]string{"-e", "runner.test.env"}, args...)
 	return Main(allArgs, out, errOut)
 }
 
@@ -41,12 +43,14 @@ func writeFile(t *testing.T, dir, name, body string) {
 		t.Fatal(err)
 	}
 }
+
 func TestListShowsRunWithoutExtension(t *testing.T) {
 	withDir(t)
+	copyTestFile(t, "runner.test.env")
 	write(t, "build.run", "#python\nprint(1)")
-	write(t, "runner.env", "runtime.python=python\next.py=python\n")
+
 	var out, err bytes.Buffer
-	code := Main([]string{"-e", "runner.env", "--list"}, &out, &err)
+	code := Main([]string{"-e", "runner.test.env", "--list"}, &out, &err)
 	if code != 0 {
 		t.Fatalf("code=%d err=%s", code, err.String())
 	}
@@ -67,12 +71,13 @@ func TestTargetOptionAfterIsRejected(t *testing.T) {
 	}
 }
 
-func TestRunPythonFile(t *testing.T) {
+func TestRunGoFile(t *testing.T) {
 	withDir(t)
-	write(t, "runner.env", "runtime.go=go run\next.go=go\n")
+	copyTestFile(t, "runner.test.env")
+
 	write(t, "hello.go", "package main\nimport \"fmt\"\nfunc main(){fmt.Println(\"OK\")}\n")
 	var out, err bytes.Buffer
-	code := Main([]string{"-e", "runner.env", "hello.go"}, &out, &err)
+	code := runMain(t, []string{"hello.go"}, &out, &err)
 	if code != 0 {
 		t.Fatalf("code=%d err=%s", code, err.String())
 	}
@@ -86,10 +91,11 @@ func TestRunPythonFile(t *testing.T) {
 
 func TestRunNamedTask(t *testing.T) {
 	withDir(t)
-	write(t, "runner.env", "runtime.go=go run\next.go=go\n")
+	copyTestFile(t, "runner.test.env")
+
 	write(t, "build.run", "#.go\npackage main\nimport \"fmt\"\nfunc main(){fmt.Println(\"TASK\")}\n")
 	var out, err bytes.Buffer
-	code := Main([]string{"-e", "runner.env", "build"}, &out, &err)
+	code := runMain(t, []string{"build"}, &out, &err)
 	if code != 0 {
 		t.Fatalf("code=%d err=%s", code, err.String())
 	}
@@ -100,10 +106,11 @@ func TestRunNamedTask(t *testing.T) {
 
 func TestDryRunDoesNotCreateTempFile(t *testing.T) {
 	withDir(t)
-	write(t, "runner.env", "runtime.go=go run\next.go=go\n")
+	copyTestFile(t, "runner.test.env")
+
 	write(t, "build.run", "#.go\npackage main\nfunc main(){}\n")
 	var out, err bytes.Buffer
-	code := Main([]string{"-e", "runner.env", "-n", "build"}, &out, &err)
+	code := runMain(t, []string{"-n", "build"}, &out, &err)
 	if code != 0 {
 		t.Fatalf("code=%d err=%s", code, err.String())
 	}
@@ -131,29 +138,30 @@ func TestCommandInvalidQuote(t *testing.T) {
 
 func TestBOMAndCRLFRunFile(t *testing.T) {
 	withDir(t)
-	write(t, "runner.env", "runtime.go=go run\r\next.go=go\r\n")
-	content := "\ufeff#.go\r\npackage main\r\nimport \"fmt\"\r\nfunc main(){fmt.Println(\"BOM\")}\r\n"
-	write(t, "runfile.run", content)
+	copyTestFile(t, "runner.test.env")
+	copyTestFile(t, "runfile.run")
+
 	var out, err bytes.Buffer
-	code := Main([]string{"-e", "runner.env"}, &out, &err)
+	code := runMain(t, []string{}, &out, &err)
 	if code != 0 {
 		t.Fatalf("code=%d err=%s", code, err.String())
 	}
-	if !strings.Contains(out.String(), "BOM") {
+	if !strings.Contains(out.String(), "runfile default") {
 		t.Fatalf("out=%q", out.String())
 	}
 }
 
 func TestExtensionNotMapped(t *testing.T) {
 	withDir(t)
-	write(t, "runner.env", "runtime.go=go run\n")
-	write(t, "hello.go", "package main\nfunc main(){}")
+	copyTestFile(t, "runner.test.env")
+
+	write(t, "hello.txt", "hello")
 	var out, err bytes.Buffer
-	code := Main([]string{"hello.go"}, &out, &err)
+	code := runMain(t, []string{"hello.txt"}, &out, &err)
 	if code == 0 {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.String(), "extension not mapped: .go") {
+	if !strings.Contains(err.String(), "extension not mapped: .txt") {
 		t.Fatalf("err=%q", err.String())
 	}
 }
@@ -235,28 +243,13 @@ func TestExpandVarsUndefined(t *testing.T) {
 }
 
 func TestCheckScriptAllOS(t *testing.T) {
-	// env
-	write(t, "runner.env", `
-runtime.pwsh=pwsh
-runtime.bash=bash
-var.name=jun
-`)
-
-	// run
-	write(t, "test.run", `#script
-
-@windows
-#pwsh
-echo ${var.name}
-
-@linux
-#bash
-echo ${var.name}
-`)
+	withDir(t)
+	copyTestFile(t, "runner.test.env")
+	copyTestFile(t, "test.run")
 
 	// 実行
 	var out, errBuf bytes.Buffer
-	code := Main([]string{"-e", "runner.env", "--check", "test.run"}, &out, &errBuf)
+	code := runMain(t, []string{"--check", "test.run"}, &out, &errBuf)
 
 	if code != 0 {
 		t.Fatalf("check failed: %s", errBuf.String())
@@ -289,7 +282,8 @@ func TestToWindowsShellPath(t *testing.T) {
 
 func TestDryRunPrintsCommand(t *testing.T) {
 	withDir(t)
-	write(t, "runner.env", "runtime.go=go run\next.go=go\n")
+	copyTestFile(t, "runner.test.env")
+
 	write(t, "build.run", "#.go\npackage main\nfunc main(){}\n")
 
 	var out, err bytes.Buffer
@@ -304,14 +298,42 @@ func TestDryRunPrintsCommand(t *testing.T) {
 }
 
 func TestDryRunDoesNotExecute(t *testing.T) {
-	os.Remove("test_output.txt")
+	withDir(t)
 
-	code := Main([]string{"-e", "runner.env", "--dry-run", "test.run"}, io.Discard, io.Discard)
+	copyTestFile(t, "runner.test.env")
+	copyTestFile(t, "test.run")
+
+	_ = os.Remove("test_output.txt")
+
+	code := Main([]string{
+		"-e", "runner.test.env",
+		"--dry-run",
+		"test.run",
+	}, io.Discard, io.Discard)
+
 	if code != 0 {
 		t.Fatalf("expected 0, got %d", code)
 	}
 
 	if _, err := os.Stat("test_output.txt"); err == nil {
 		t.Fatal("file should not be created in dry-run")
+	}
+}
+
+func copyTestFile(t *testing.T, name string) {
+	t.Helper()
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+
+	src := filepath.Join(filepath.Dir(thisFile), "..", "..", "test", name)
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatalf("read %s: %v", src, err)
+	}
+	if err := os.WriteFile(name, data, 0o644); err != nil {
+		t.Fatalf("write %s: %v", name, err)
 	}
 }
