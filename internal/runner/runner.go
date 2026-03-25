@@ -21,6 +21,7 @@ type runPlan struct {
 	Command  []string
 	TempPath string
 	UseTemp  bool
+	Script   string
 }
 
 type envConfig struct {
@@ -62,11 +63,27 @@ func Main(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 
-	fmt.Fprintf(stdout, "[runner] command: %s\n", strings.Join(plan.Command, " "))
-	if opts.dryRun {
-		return 0
+	if plan.UseTemp {
+		_ = os.WriteFile(plan.TempPath, []byte(plan.Script), 0o600)
 	}
 
+	fmt.Fprintf(stdout, "[runner] %s\n", strings.Join(plan.Command, " "))
+	if opts.dryRun {
+
+		if plan.UseTemp {
+			data, err := os.ReadFile(plan.TempPath)
+			if err == nil {
+				fmt.Fprintln(stdout, "--- script ---")
+				fmt.Fprint(stdout, string(data))
+				if len(data) == 0 || data[len(data)-1] != '\n' {
+					fmt.Fprintln(stdout)
+				}
+				fmt.Fprintln(stdout, "--- end ---")
+			}
+		}
+
+		return 0
+	}
 	cmd := exec.Command(plan.Command[0], plan.Command[1:]...)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
@@ -262,13 +279,22 @@ func buildRunPlanFromRun(path string, cfg envConfig, opts options) (runPlan, err
 	scriptPath := runtimeScriptPath(runtimeName, tempPath, cfg)
 	args = append(args, scriptPath)
 
-	if opts.dryRun {
-		return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
+	plan := runPlan{
+		Command:  args,
+		TempPath: tempPath,
+		UseTemp:  true,
+		Script:   body,
 	}
+
+	if opts.dryRun {
+		return plan, nil
+	}
+
 	if err := os.WriteFile(tempPath, []byte(body), 0o600); err != nil {
 		return runPlan{}, err
 	}
-	return runPlan{Command: args, TempPath: tempPath, UseTemp: true}, nil
+
+	return plan, nil
 }
 
 func resolveRunFileTarget(rf runFile, cfg envConfig, opts options) (string, string, string, error) {

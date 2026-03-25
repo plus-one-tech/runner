@@ -15,6 +15,7 @@ if (!(Test-Path $configDir)) {
 }
 
 Copy-Item bin\runner.exe "$binDir\runner.exe" -Force
+Write-Output "Runner copy: $binDir\runner.exe"
 
 if (!(Test-Path "$configDir\runner.env")) {
     Copy-Item runner.env "$configDir\runner.env"

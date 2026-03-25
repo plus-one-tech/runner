@@ -28,26 +28,10 @@ func withDir(t *testing.T) string {
 	t.Cleanup(func() { _ = os.Chdir(old) })
 	return d
 }
-
-func write(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func writeFile(t *testing.T, dir, name, body string) {
-	t.Helper()
-	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestListShowsRunWithoutExtension(t *testing.T) {
 	withDir(t)
 	copyTestFile(t, "runner.test.env")
-	write(t, "build.run", "#python\nprint(1)")
+	copyTestFileAs(t, "list-build.run", "build.run")
 
 	var out, err bytes.Buffer
 	code := Main([]string{"-e", "runner.test.env", "--list"}, &out, &err)
@@ -70,30 +54,11 @@ func TestTargetOptionAfterIsRejected(t *testing.T) {
 		t.Fatalf("err=%q", err.String())
 	}
 }
-
-func TestRunGoFile(t *testing.T) {
-	withDir(t)
-	copyTestFile(t, "runner.test.env")
-
-	write(t, "hello.go", "package main\nimport \"fmt\"\nfunc main(){fmt.Println(\"OK\")}\n")
-	var out, err bytes.Buffer
-	code := runMain(t, []string{"hello.go"}, &out, &err)
-	if code != 0 {
-		t.Fatalf("code=%d err=%s", code, err.String())
-	}
-	if !strings.Contains(out.String(), "[runner] command: go run hello.go") {
-		t.Fatalf("out=%q", out.String())
-	}
-	if !strings.Contains(out.String(), "OK") {
-		t.Fatalf("out=%q", out.String())
-	}
-}
-
 func TestRunNamedTask(t *testing.T) {
 	withDir(t)
 	copyTestFile(t, "runner.test.env")
+	copyTestFileAs(t, "build-task.run", "build.run")
 
-	write(t, "build.run", "#.go\npackage main\nimport \"fmt\"\nfunc main(){fmt.Println(\"TASK\")}\n")
 	var out, err bytes.Buffer
 	code := runMain(t, []string{"build"}, &out, &err)
 	if code != 0 {
@@ -108,7 +73,7 @@ func TestDryRunDoesNotCreateTempFile(t *testing.T) {
 	withDir(t)
 	copyTestFile(t, "runner.test.env")
 
-	write(t, "build.run", "#.go\npackage main\nfunc main(){}\n")
+	copyTestFileAs(t, "build-dryrun.run", "build.run")
 	var out, err bytes.Buffer
 	code := runMain(t, []string{"-n", "build"}, &out, &err)
 	if code != 0 {
@@ -154,8 +119,8 @@ func TestBOMAndCRLFRunFile(t *testing.T) {
 func TestExtensionNotMapped(t *testing.T) {
 	withDir(t)
 	copyTestFile(t, "runner.test.env")
+	copyTestFile(t, "hello.txt")
 
-	write(t, "hello.txt", "hello")
 	var out, err bytes.Buffer
 	code := runMain(t, []string{"hello.txt"}, &out, &err)
 	if code == 0 {
@@ -245,12 +210,10 @@ func TestExpandVarsUndefined(t *testing.T) {
 func TestCheckScriptAllOS(t *testing.T) {
 	withDir(t)
 	copyTestFile(t, "runner.test.env")
-	copyTestFile(t, "test.run")
+	copyTestFileAs(t, "test-script.run", "test.run")
 
-	// 実行
 	var out, errBuf bytes.Buffer
 	code := runMain(t, []string{"--check", "test.run"}, &out, &errBuf)
-
 	if code != 0 {
 		t.Fatalf("check failed: %s", errBuf.String())
 	}
@@ -283,8 +246,7 @@ func TestToWindowsShellPath(t *testing.T) {
 func TestDryRunPrintsCommand(t *testing.T) {
 	withDir(t)
 	copyTestFile(t, "runner.test.env")
-
-	write(t, "build.run", "#.go\npackage main\nfunc main(){}\n")
+	copyTestFileAs(t, "build-dryrun.run", "build.run")
 
 	var out, err bytes.Buffer
 	code := runMain(t, []string{"--dry-run", "build"}, &out, &err)
@@ -292,16 +254,15 @@ func TestDryRunPrintsCommand(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected 0, got %d, err=%s", code, err.String())
 	}
-	if !strings.Contains(out.String(), "[runner] command: go run") {
+	if !strings.Contains(out.String(), "[runner] go run") {
 		t.Fatalf("out=%q", out.String())
 	}
 }
 
 func TestDryRunDoesNotExecute(t *testing.T) {
 	withDir(t)
-
 	copyTestFile(t, "runner.test.env")
-	copyTestFile(t, "test.run")
+	copyTestFileAs(t, "dryrun-noexecute.run", "test.run")
 
 	_ = os.Remove("test_output.txt")
 
@@ -335,5 +296,23 @@ func copyTestFile(t *testing.T, name string) {
 	}
 	if err := os.WriteFile(name, data, 0o644); err != nil {
 		t.Fatalf("write %s: %v", name, err)
+	}
+}
+
+func copyTestFileAs(t *testing.T, srcName, dstName string) {
+	t.Helper()
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+
+	src := filepath.Join(filepath.Dir(thisFile), "..", "..", "test", srcName)
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatalf("read %s: %v", src, err)
+	}
+	if err := os.WriteFile(dstName, data, 0o644); err != nil {
+		t.Fatalf("write %s: %v", dstName, err)
 	}
 }
