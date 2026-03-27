@@ -4,23 +4,61 @@ runner is a lightweight command runner for scripts and tasks.
 
 It provides a simple way to execute source files and reusable tasks with a single command.
 
-```bash
-runner hello.py
-runner build
-runner
+## Example
+
+The following shows how `runner` executes commands:
+
+```text
+>runner hello.py
+[runner] python hello.py
+Hello Runner
+
+>runner build
+[runner] bash build.sh
+Building...
+Done.
+
+>runner
+[runner] bash runfile.sh
+Running default task...
+>
 ```
+
+`runner` prints the actual command being executed, then runs it.
 
 ## Overview
 
 `runner` is designed to make script execution and task running simple and predictable.
 
-It focuses on three goals:
+## Background
+
+In everyday development, the same tasks are repeated over and over:
+write code, build, test, and run.
+
+`runner` was created to make these tasks simple to execute with a single command.
+
+With modern tooling (for example, running C# directly from the command line),
+it becomes possible to treat source files more like scripts.
+
+For example:
+
+```text
+>run hello.cs
+hello world
+````
+
+The goal is to make execution feel lightweight and immediate.
+
+## Philosophy
+
+`runner` is built on a few simple principles:
 
 * **Unified execution** – run scripts and tasks using the same command
 * **Transparency** – always show the actual command being executed
 * **Minimal design** – avoid complex DSLs or heavy configuration
 
-Unlike many task runners, `runner` does not introduce a new scripting language. Task files simply contain normal program code.
+Unlike many task runners, `runner` does not introduce a new scripting language.
+Task files simply contain normal program code.
 
 ## Basic Usage
 
@@ -40,7 +78,7 @@ If `build.run` exists:
 
 ```text
 #bash
-dotnet run ./src/build.cs
+dotnet run ./src/hello.cs
 ```
 
 `runner` simply executes what is written in the `.run` file.
@@ -75,7 +113,7 @@ runner --check build.run
 runner --env ./runner.env install.run
 ```
 
-### List available tasks
+### List available `.run` files
 
 ```bash
 runner --list
@@ -124,11 +162,19 @@ You can also specify it explicitly with `--env`.
 
 ## Install Task
 
-If `install.run` and `runner.env` are provided together, run:
+If `install.run` and `runner.env` are provided together:
 
-```bash
-runner --env ./runner.env install.run
+```powershell
+.\bin\runner --env ./runner.env install.run
 ```
+
+### Notes (Windows)
+
+On Windows, an executing `.exe` file cannot overwrite itself.
+
+To install or update `runner`, always execute it from a different location than the target.
+
+Use a separate binary (for example, `.\bin\runner`) to perform installation.
 
 ## Specification
 

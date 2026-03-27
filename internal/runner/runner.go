@@ -63,25 +63,19 @@ func Main(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 1
 	}
 
-	if plan.UseTemp {
+	if plan.UseTemp && !opts.dryRun {
 		_ = os.WriteFile(plan.TempPath, []byte(plan.Script), 0o600)
 	}
-
 	fmt.Fprintf(stdout, "[runner] %s\n", strings.Join(plan.Command, " "))
 	if opts.dryRun {
-
 		if plan.UseTemp {
-			data, err := os.ReadFile(plan.TempPath)
-			if err == nil {
-				fmt.Fprintln(stdout, "--- script ---")
-				fmt.Fprint(stdout, string(data))
-				if len(data) == 0 || data[len(data)-1] != '\n' {
-					fmt.Fprintln(stdout)
-				}
-				fmt.Fprintln(stdout, "--- end ---")
+			fmt.Fprintln(stdout, "--- script ---")
+			fmt.Fprint(stdout, plan.Script)
+			if len(plan.Script) == 0 || plan.Script[len(plan.Script)-1] != '\n' {
+				fmt.Fprintln(stdout)
 			}
+			fmt.Fprintln(stdout, "--- end ---")
 		}
-
 		return 0
 	}
 	cmd := exec.Command(plan.Command[0], plan.Command[1:]...)
