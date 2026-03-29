@@ -45,7 +45,7 @@ it becomes possible to treat source files more like scripts.
 For example:
 
 ```text
->run hello.cs
+> run hello.cs
 hello world
 ```
 
