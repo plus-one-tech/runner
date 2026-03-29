@@ -47,7 +47,7 @@ For example:
 ```text
 >run hello.cs
 hello world
-````
+```
 
 The goal is to make execution feel lightweight and immediate.
 
@@ -186,10 +186,10 @@ Full specification is available here:
 
 ## Status
 
-The project is currently in the final specification phase.
+This is an early release (v0.1.0).
 
-Implementation is planned next.
+The core functionality is implemented and usable, but the project is still evolving.
 
 ## License
 
-TBD
+MIT License
