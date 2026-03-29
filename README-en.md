@@ -190,6 +190,10 @@ This is an early release (v0.1.0).
 
 The core functionality is implemented and usable, but the project is still evolving.
 
+## Contributing
+
+Pull requests are welcome, but changes may be declined if they do not align with the project's design philosophy.
+
 ## License
 
 MIT License
