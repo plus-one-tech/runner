@@ -1,5 +1,7 @@
 # runner
 
+[日本語版はこちら](./README.md)
+
 runner is a lightweight command runner for scripts and tasks.
 
 It provides a simple way to execute source files and reusable tasks with a single command.
@@ -9,16 +11,16 @@ It provides a simple way to execute source files and reusable tasks with a singl
 The following shows how `runner` executes commands:
 
 ```text
->runner hello.py
+> runner hello.py
 [runner] python hello.py
 Hello Runner
 
->runner build
+> runner build
 [runner] bash build.sh
 Building...
 Done.
 
->runner
+> runner
 [runner] bash runfile.sh
 Running default task...
 >
