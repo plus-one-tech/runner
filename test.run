@@ -1,0 +1,37 @@
+# test.run
+
+@windows
+#pwsh
+New-Item -ItemType Directory -Force test/result | Out-Null
+
+echo === spec ===
+go test ./internal/runner -run TestSpec -v | Tee-Object test/result/spec.log
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+echo === feature ===
+go test ./internal/runner -run TestFeature -v | Tee-Object test/result/feature.log
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+@linux
+#bash
+mkdir -p test/result
+
+echo === spec ===
+go test ./internal/runner -run TestSpec -v | tee test/result/spec.log
+test ${PIPESTATUS[0]} -eq 0 || exit ${PIPESTATUS[0]}
+
+echo === feature ===
+go test ./internal/runner -run TestFeature -v | tee test/result/feature.log
+test ${PIPESTATUS[0]} -eq 0 || exit ${PIPESTATUS[0]}
+
+@macos
+#bash
+mkdir -p test/result
+
+echo === spec ===
+go test ./internal/runner -run TestSpec -v | tee test/result/spec.log
+test ${PIPESTATUS[0]} -eq 0 || exit ${PIPESTATUS[0]}
+
+echo === feature ===
+go test ./internal/runner -run TestFeature -v | tee test/result/feature.log
+test ${PIPESTATUS[0]} -eq 0 || exit ${PIPESTATUS[0]}

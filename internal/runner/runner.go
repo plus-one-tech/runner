@@ -42,7 +42,7 @@ func Main(args []string, stdout io.Writer, stderr io.Writer) int {
 		return 0
 	}
 	if opts.version {
-		fmt.Fprintf(stdout, "runner %s\n", version)
+		fmt.Fprintf(stdout, "runner version %s\n", version)
 		return 0
 	}
 	if opts.list {
@@ -100,9 +100,20 @@ func Main(args []string, stdout io.Writer, stderr io.Writer) int {
 func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "usage: runner [options] [target]")
 	fmt.Fprintln(w)
+	fmt.Fprintln(w, "options:")
+	fmt.Fprintln(w, "  -n, --dry-run         print command without executing")
+	fmt.Fprintln(w, "      --dry-run=<os>    print script for windows|linux|macos|all")
+	fmt.Fprintln(w, "  -c, --check           validate target without executing")
+	fmt.Fprintln(w, "  -e, --env <file>      use env file")
+	fmt.Fprintln(w, "  -h, --help            show help")
+	fmt.Fprintln(w, "      --version         show version")
+	fmt.Fprintln(w, "      --list            list .run targets in current directory")
+	fmt.Fprintln(w)
 	fmt.Fprintln(w, "examples:")
 	fmt.Fprintln(w, "  runner hello.py")
 	fmt.Fprintln(w, "  runner build")
+	fmt.Fprintln(w, "  runner --dry-run build")
+	fmt.Fprintln(w, "  runner --check build.run")
 	fmt.Fprintln(w, "  runner")
 }
 
