@@ -1,2 +1,2 @@
-#runtime=python
+#python
 print("runtime")

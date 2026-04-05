@@ -1,2 +1,2 @@
-#ext=.py
-hello.py
+#.py
+print("hello")

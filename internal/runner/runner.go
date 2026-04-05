@@ -346,15 +346,26 @@ func resolveNormalHeader(h header, cfg envConfig) (string, string, error) {
 		if !ok {
 			return "", "", fmt.Errorf("[runner] extension not mapped: .%s", h.extension)
 		}
-		return runtimeName, "." + h.extension, nil
+
+		ext := tempExtForRuntime(runtimeName)
+		if ext == "" {
+			ext = "." + h.extension
+		}
+
+		return runtimeName, ext, nil
 	default:
 		return "", "", fmt.Errorf("[runner] invalid .run header")
 	}
 }
 
 func tempExtForRuntime(runtimeName string) string {
-	if runtimeName == "pwsh" {
+	r := strings.ToLower(strings.TrimSpace(runtimeName))
+
+	if strings.Contains(r, "pwsh") || strings.Contains(r, "powershell") {
 		return ".ps1"
+	}
+	if strings.Contains(r, "bash") || strings.Contains(r, "sh") {
+		return ".sh"
 	}
 	return ""
 }

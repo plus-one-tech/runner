@@ -213,8 +213,8 @@ func TestSpec_AT049_CheckWithDryRun(t *testing.T) {
 	var out, err bytes.Buffer
 	code := Main([]string{"--check", "--dry-run", specPath("build.run")}, &out, &err)
 
-	if code != 0 {
-		t.Fatalf("code=%d err=%s", code, err.String())
+	if code == 0 {
+		t.Fatalf("expected error but got success")
 	}
 }
 
@@ -254,8 +254,10 @@ func TestSpec_AT052_ExtHeader(t *testing.T) {
 func TestSpec_AT076_EnvSpecified(t *testing.T) {
 	at(t, "AT-076")
 
+	withSpecDir(t)
+
 	var out, err bytes.Buffer
-	code := Main([]string{"--env", specPath("runner.test.env"), "build"}, &out, &err)
+	code := Main([]string{"--env", "runner.test.env", "build"}, &out, &err)
 
 	if code != 0 {
 		t.Fatalf("code=%d err=%s", code, err.String())

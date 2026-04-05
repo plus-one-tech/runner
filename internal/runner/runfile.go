@@ -53,18 +53,44 @@ func parseRunFile(text string) (runFile, error) {
 	text = strings.TrimPrefix(text, "\ufeff")
 
 	lines := strings.Split(text, "\n")
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
+	if len(lines) == 0 {
 		return runFile{}, fmt.Errorf("[runner] invalid .run format\nmissing header")
 	}
 
-	h, err := parseHeader(lines[0], true)
+	// 先頭の空行を除去
+	var cleaned []string
+	for _, line := range lines {
+		if len(cleaned) == 0 && strings.TrimSpace(line) == "" {
+			continue
+		}
+		cleaned = append(cleaned, line)
+	}
+
+	if len(cleaned) == 0 {
+		return runFile{}, fmt.Errorf("[runner] invalid .run format\nmissing header")
+	}
+
+	first := strings.TrimSpace(cleaned[0])
+
+	if strings.HasPrefix(first, "@") {
+		script, err := parseScriptRunFile(cleaned)
+		if err != nil {
+			return runFile{}, err
+		}
+		return runFile{
+			kind:   runFileKindScript,
+			script: script,
+		}, nil
+	}
+
+	h, err := parseHeader(cleaned[0], true)
 	if err != nil {
 		return runFile{}, err
 	}
 
 	bodyLines := []string{}
-	if len(lines) > 1 {
-		bodyLines = lines[1:]
+	if len(cleaned) > 1 {
+		bodyLines = cleaned[1:]
 	}
 
 	if h.kind == "" && h.runtimeName == "script" {
@@ -117,93 +143,60 @@ func parseHeader(line string, allowScript bool) (header, error) {
 }
 
 func parseScriptRunFile(lines []string) (scriptRunFile, error) {
-	blocks := map[string]scriptBlock{}
+	result := scriptRunFile{
+		blocks: map[string]scriptBlock{},
+	}
+
 	var currentOS string
 	var currentRuntime string
 	var body []string
-	runtimeRequiredOS := ""
 
 	flush := func() error {
 		if currentOS == "" {
 			return nil
 		}
 		if currentRuntime == "" {
-			return fmt.Errorf("[runner] runtime header required in os block: %s", runtimeRequiredOS)
+			return fmt.Errorf("[runner] runtime not specified for os block: %s", currentOS)
 		}
-		blocks[currentOS] = scriptBlock{
-			osName:      currentOS,
+		result.blocks[currentOS] = scriptBlock{
 			runtimeName: currentRuntime,
 			body:        strings.Join(body, "\n"),
 		}
 		return nil
 	}
 
-	for _, raw := range lines {
-		trimmed := strings.TrimSpace(raw)
-		if currentOS == "" {
-			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
-				continue
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "@") {
+			if err := flush(); err != nil {
+				return scriptRunFile{}, err
 			}
-			if strings.HasPrefix(trimmed, "@") {
-				osName, err := parseOSMarker(trimmed)
-				if err != nil {
-					return scriptRunFile{}, err
-				}
-				if _, exists := blocks[osName]; exists {
-					return scriptRunFile{}, fmt.Errorf("[runner] duplicate os block: %s", osName)
-				}
-				currentOS = osName
-				runtimeRequiredOS = osName
-				currentRuntime = ""
-				body = nil
-				continue
-			}
-			return scriptRunFile{}, fmt.Errorf("[runner] invalid script block")
+			currentOS = strings.TrimPrefix(trimmed, "@")
+			currentRuntime = ""
+			body = nil
+			continue
 		}
 
 		if currentRuntime == "" {
 			if trimmed == "" {
 				continue
 			}
-			if strings.HasPrefix(trimmed, "@") {
-				return scriptRunFile{}, fmt.Errorf("[runner] runtime header required in os block: %s", runtimeRequiredOS)
+			if !strings.HasPrefix(trimmed, "#") {
+				return scriptRunFile{}, fmt.Errorf("[runner] runtime header required after @%s", currentOS)
 			}
-			h, err := parseHeader(trimmed, false)
-			if err != nil || h.kind != headerKindRuntime {
-				return scriptRunFile{}, fmt.Errorf("[runner] runtime header required in os block: %s", runtimeRequiredOS)
-			}
-			currentRuntime = h.runtimeName
+			currentRuntime = strings.TrimPrefix(trimmed, "#")
 			continue
 		}
 
-		if strings.HasPrefix(trimmed, "@") {
-			if err := flush(); err != nil {
-				return scriptRunFile{}, err
-			}
-			osName, err := parseOSMarker(trimmed)
-			if err != nil {
-				return scriptRunFile{}, err
-			}
-			if _, exists := blocks[osName]; exists {
-				return scriptRunFile{}, fmt.Errorf("[runner] duplicate os block: %s", osName)
-			}
-			currentOS = osName
-			runtimeRequiredOS = osName
-			currentRuntime = ""
-			body = nil
-			continue
-		}
-
-		body = append(body, raw)
+		body = append(body, line)
 	}
 
 	if err := flush(); err != nil {
 		return scriptRunFile{}, err
 	}
-	if len(blocks) == 0 {
-		return scriptRunFile{}, nil
-	}
-	return scriptRunFile{blocks: blocks}, nil
+
+	return result, nil
 }
 
 func parseOSMarker(line string) (string, error) {
